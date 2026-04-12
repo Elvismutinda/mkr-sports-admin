@@ -13,6 +13,7 @@ const transporter = nodemailer.createTransport({
 
 const FROM = `MKR Sports <${process.env.SMTP_USER}>`;
 const BASE_URL = process.env.NEXTAUTH_URL;
+const CLIENT_URL = process.env.NEXTCLIENT_URL;
 
 function logoRow() {
   return `
@@ -76,7 +77,7 @@ export async function sendAgentInviteEmail(
   name: string,
   token: string,
 ) {
-  const link = `${BASE_URL}/auth/reset-password?token=${token}`;
+  const link = `${CLIENT_URL}/auth/reset-password?token=${token}`;
  
   await transporter.sendMail({
     from: FROM,
