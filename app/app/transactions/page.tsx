@@ -123,7 +123,7 @@ export default function PaymentsPage() {
   return (
     <main className="flex flex-col gap-4 min-h-screen">
       <div className="flex flex-wrap gap-4 items-center">
-        <h2 className="text-2xl font-bold grow">Payments</h2>
+        <h2 className="text-2xl font-bold grow">Transactions</h2>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
