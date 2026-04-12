@@ -110,9 +110,7 @@ export const challengeStatusEnum = pgEnum(
   challengeStatuses,
 );
 
-// ─────────────────────────────────────────────
-// ROLES & PERMISSIONS (Admin / System)
-// ─────────────────────────────────────────────
+
 
 /**
  * System roles — distinct from player/agent roles.
@@ -197,9 +195,7 @@ export const systemUser = pgTable("system_users", {
     .$onUpdate(() => new Date()),
 });
 
-// ─────────────────────────────────────────────
-// PLAYERS / AGENTS (End Users)
-// ─────────────────────────────────────────────
+
 
 export const user = pgTable("users", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -244,9 +240,7 @@ export const user = pgTable("users", {
     .$onUpdate(() => new Date()),
 });
 
-// ─────────────────────────────────────────────
-// TURFS
-// ─────────────────────────────────────────────
+
 
 export const turf = pgTable("turfs", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -274,9 +268,7 @@ export const turf = pgTable("turfs", {
     .$onUpdate(() => new Date()),
 });
 
-// ─────────────────────────────────────────────
-// TEAMS
-// ─────────────────────────────────────────────
+
 
 export const team = pgTable("teams", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -314,7 +306,6 @@ export const team = pgTable("teams", {
     .$onUpdate(() => new Date()),
 });
 
-/** Members of a team */
 export const teamMember = pgTable(
   "team_members",
   {
@@ -390,9 +381,7 @@ export const challenge = pgTable(
   }),
 );
 
-// ─────────────────────────────────────────────
-// TOURNAMENTS
-// ─────────────────────────────────────────────
+
 
 export const tournament = pgTable("tournaments", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -523,9 +512,7 @@ export const standing = pgTable(
   }),
 );
 
-// ─────────────────────────────────────────────
-// MATCHES / FIXTURES
-// ─────────────────────────────────────────────
+
 
 export const match = pgTable(
   "matches",
@@ -609,9 +596,6 @@ export const matchPlayer = pgTable(
   }),
 );
 
-// ─────────────────────────────────────────────
-// MEDIA
-// ─────────────────────────────────────────────
 
 export const media = pgTable(
   "media",
@@ -638,9 +622,7 @@ export const media = pgTable(
   }),
 );
 
-// ─────────────────────────────────────────────
-// PAYMENTS
-// ─────────────────────────────────────────────
+
 
 export const payment = pgTable(
   "payments",
@@ -680,9 +662,7 @@ export const payment = pgTable(
   }),
 );
 
-// ─────────────────────────────────────────────
-// NOTIFICATIONS
-// ─────────────────────────────────────────────
+
 
 export const notification = pgTable(
   "notifications",
@@ -707,9 +687,7 @@ export const notification = pgTable(
   }),
 );
 
-// ─────────────────────────────────────────────
-// SYSTEM LOGS
-// ─────────────────────────────────────────────
+
 
 export const systemLog = pgTable(
   "system_logs",
@@ -735,9 +713,7 @@ export const systemLog = pgTable(
   }),
 );
 
-// ─────────────────────────────────────────────
-// AUTH TOKENS
-// ─────────────────────────────────────────────
+
 
 export const verificationToken = pgTable(
   "verification_tokens",
@@ -772,9 +748,7 @@ export const passwordResetToken = pgTable(
   }),
 );
 
-// ─────────────────────────────────────────────
-// TYPE EXPORTS (inferred from schema)
-// ─────────────────────────────────────────────
+
 
 export type User = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;

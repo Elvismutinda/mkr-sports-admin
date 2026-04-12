@@ -63,7 +63,7 @@ export default function SettingsLayout({
             label: (
               <Link
                 href={item.path}
-                className="flex items-center gap-2 text-inherit"
+                className="flex items-center gap-2 text-inherit!"
               >
                 {item.icon}
                 {item.label}

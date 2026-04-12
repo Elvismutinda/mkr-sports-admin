@@ -1,8 +1,13 @@
 import useSWR from "swr";
 import { fetcher } from "../_fetcher";
-import { PaginatedResponse, PermissionsResponse, SystemRoleRow, SystemUserRow } from "../_types";
+import {
+  PaginatedResponse,
+  PermissionsResponse,
+  SystemRoleRow,
+  SystemUserRow,
+} from "../_types";
 
-// ─── Roles ────────────────────────────────────────────────────────────────────
+// Roles
 
 export const useSystemRoles = () => {
   const { data, error, isLoading, mutate } = useSWR<SystemRoleRow[]>(
@@ -49,14 +54,16 @@ export const updateSystemRole = async (
   return data;
 };
 
-export const deleteSystemRole = async (id: string): Promise<{ message: string }> => {
+export const deleteSystemRole = async (
+  id: string,
+): Promise<{ message: string }> => {
   const res = await fetch(`/api/admin/roles/${id}`, { method: "DELETE" });
   const data = await res.json();
   if (!res.ok) throw data;
   return data;
 };
 
-// ─── Permissions ──────────────────────────────────────────────────────────────
+// Permissions
 
 export const useSystemPermissions = () => {
   const { data, error, isLoading } = useSWR<PermissionsResponse>(
@@ -66,17 +73,22 @@ export const useSystemPermissions = () => {
   return { data, error, isLoading };
 };
 
-// ─── System Users ─────────────────────────────────────────────────────────────
+// System Users
 
-export const useSystemUsers = (params?: { q?: string; page?: number; limit?: number }) => {
+export const useSystemUsers = (params?: {
+  q?: string;
+  page?: number;
+  limit?: number;
+}) => {
   const qs = new URLSearchParams();
   if (params?.q) qs.set("q", params.q);
   if (params?.page) qs.set("page", String(params.page));
   if (params?.limit) qs.set("limit", String(params.limit));
 
   const url = `/api/admin/system-users?${qs.toString()}`;
-  const { data, error, isLoading, mutate } =
-    useSWR<PaginatedResponse<SystemUserRow>>(url, fetcher);
+  const { data, error, isLoading, mutate } = useSWR<
+    PaginatedResponse<SystemUserRow>
+  >(url, fetcher);
 
   return { data, error, isLoading, mutate };
 };
@@ -124,8 +136,12 @@ export const updateSystemUser = async (
   return data;
 };
 
-export const suspendSystemUser = async (id: string): Promise<{ message: string }> => {
-  const res = await fetch(`/api/admin/system-users/${id}`, { method: "DELETE" });
+export const suspendSystemUser = async (
+  id: string,
+): Promise<{ message: string }> => {
+  const res = await fetch(`/api/admin/system-users/${id}`, {
+    method: "DELETE",
+  });
   const data = await res.json();
   if (!res.ok) throw data;
   return data;

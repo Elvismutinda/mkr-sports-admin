@@ -27,7 +27,7 @@ export function AuthNavbar() {
           </span>
         </div>
 
-        <div className="mx-4">
+        <div className="flex mx-4 gap-2">
           <Tag color="#2a79b5">ADMIN PORTAL</Tag>
           {process.env.NEXT_PUBLIC_ENVIRONMENT && (
             <Tag color="warning">{process.env.NEXT_PUBLIC_ENVIRONMENT}</Tag>

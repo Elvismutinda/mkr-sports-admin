@@ -1,7 +1,9 @@
 "use client";
 
-import { Avatar, Button, Dropdown, MenuProps, Popover, Tag } from "antd";
+import { Avatar, Badge, Button, Dropdown, Popover, Tag } from "antd";
+import type { MenuProps } from "antd";
 import {
+  BellOutlined,
   LogoutOutlined,
   MenuOutlined,
   UserOutlined,
@@ -13,8 +15,8 @@ import { signOut } from "next-auth/react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { authActions } from "@/store/slices/auth";
 import { clearPermissions } from "@/store/slices/permissionSlice";
-// import { getNotificationsCount } from "@/services/api/notifications.service";
-// import NotificationModal from "@/app/app/notifications/(Components)/NotificationModal";
+import { useNotifications } from "@/services/api/notifications.service";
+import NotificationModal from "@/components/NotificationModal";
 
 interface Props {
   toggleMenu: () => void;
@@ -27,10 +29,11 @@ export default function AppNavBar({ toggleMenu }: Props) {
   const user = useAppSelector((state) => state.auth.user);
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
-//   const { data: notificationCount } = getNotificationsCount();
   const [isPopoverOpen, setPopoverOpen] = useState(false);
 
-  // Belt-and-suspenders: if Redux says unauthenticated, send to /auth
+  const { data: notifData, mutate: mutateNotifications } = useNotifications();
+  const unreadCount = notifData?.unreadCount ?? 0;
+
   useEffect(() => {
     if (!isAuthenticated) router.replace("/auth");
   }, [isAuthenticated, router]);
@@ -42,7 +45,6 @@ export default function AppNavBar({ toggleMenu }: Props) {
     router.replace("/auth");
   };
 
-  // Build initials from system user's name (single name string, not first/last)
   const initials = user?.name
     ? user.name
         .trim()
@@ -59,21 +61,17 @@ export default function AppNavBar({ toggleMenu }: Props) {
       icon: <UserOutlined />,
       label: <Link href="/app/profile">My Profile</Link>,
     },
-    {
-      type: "divider",
-    },
+    { type: "divider" },
     {
       key: "logout",
       icon: <LogoutOutlined />,
       label: <span onClick={handleLogout}>Logout</span>,
-      className: "!text-red-500",
       danger: true,
     },
   ];
 
   return (
-    <div className="h-15 shrink-0 z-10 border-b flex flex-row items-center px-4 bg-white/50 backdrop-blur-lg gap-4">
-      {/* Sidebar toggle */}
+    <div className="h-15 shrink-0 z-10 border-b border-slate-800/10 flex flex-row items-center px-4 bg-white/50 backdrop-blur-lg gap-4">
       <Button
         type="text"
         icon={<MenuOutlined />}
@@ -81,28 +79,30 @@ export default function AppNavBar({ toggleMenu }: Props) {
         onClick={toggleMenu}
       />
 
-      {/* Right side */}
       <div className="flex grow items-center justify-end gap-4">
-        {/* Environment tag */}
         {process.env.NEXT_PUBLIC_ENVIRONMENT && (
           <Tag color="warning">{process.env.NEXT_PUBLIC_ENVIRONMENT}</Tag>
         )}
 
-        {/* Notifications */}
         <Popover
           open={isPopoverOpen}
-          onOpenChange={setPopoverOpen}
-        //   content={
-        //     <NotificationModal handleClose={() => setPopoverOpen(false)} />
-        //   }
+          onOpenChange={(open) => {
+            setPopoverOpen(open);
+            if (open) mutateNotifications();
+          }}
+          content={<NotificationModal onClose={() => setPopoverOpen(false)} />}
           trigger="click"
+          placement="bottomRight"
+          styles={{
+            root: { padding: 0 },
+            container: { padding: "12px 12px 8px" },
+          }}
         >
-          {/* <Badge count={notificationCount || 0} overflowCount={99}>
-            <BellOutlined className="text-2xl! text-gray-400! hover:text-primary! cursor-pointer transition-colors" />
-          </Badge> */}
+          <Badge count={unreadCount} overflowCount={99} size="small">
+            <BellOutlined className="text-xl text-gray-400 hover:text-primary cursor-pointer transition-colors" />
+          </Badge>
         </Popover>
 
-        {/* User avatar + dropdown */}
         <Dropdown
           menu={{ items: dropdownItems }}
           placement="bottomRight"

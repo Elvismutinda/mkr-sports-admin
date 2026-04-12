@@ -1,6 +1,7 @@
 "use client";
+
 import React from "react";
-import { Menu } from "antd";
+import { Badge, Menu } from "antd";
 import type { MenuProps } from "antd";
 import {
   DashboardOutlined,
@@ -13,22 +14,28 @@ import {
   TeamOutlined,
   CreditCardOutlined,
   EnvironmentOutlined,
-  LineChartOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
 import Sider from "antd/es/layout/Sider";
-import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import { Permission, PermissionGroups } from "@/_utils/enums/permissions.enum";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { MKRSportsLogo } from "./MKRSportsLogo";
+import { useModuleCounts } from "@/services/api/notifications.service";
 
-type MenuItem = Required<MenuProps>["items"][number];
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const EXPANDED_W = 220;
+const COLLAPSED_W = 64;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type MenuItem = NonNullable<MenuProps["items"]>[number];
 
 interface SidebarItem {
   key: string;
   icon: React.ReactNode;
-  label?: React.ReactNode;
+  label: React.ReactNode;
   hasPermission: boolean;
   children?: SidebarChildItem[];
 }
@@ -40,25 +47,34 @@ interface SidebarChildItem {
   hasPermission: boolean;
 }
 
-const siderStyle: React.CSSProperties = {
-  overflow: "auto",
-  height: "100vh",
-  insetInlineStart: 0,
-  top: 0,
-  bottom: 0,
-  scrollbarWidth: "thin",
-  scrollbarGutter: "stable",
-};
+// ─── Badge label helper ───────────────────────────────────────────────────────
+
+function BadgeLabel({ label, count }: { label: string; count: number }) {
+  return (
+    <span className="flex items-center gap-2">
+      {label}
+      {count > 0 && <Badge size="small" count={count} overflowCount={99} />}
+    </span>
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+interface Props {
+  collapsed: boolean;
+  onClose?: () => void; // called when the mobile overlay backdrop is clicked
+  className?: string;
+}
 
 export default function AppSideBar({
-  collapsed = false,
+  collapsed,
+  onClose,
   className = "",
-}: Readonly<{
-  className: string;
-  collapsed: boolean;
-}>) {
+}: Readonly<Props>) {
   const router = useRouter();
+  const pathname = usePathname();
   const { hasAnyPermission, hasPermission } = usePermission();
+  const { data: counts } = useModuleCounts();
 
   const menuItems: SidebarItem[] = [
     {
@@ -70,19 +86,13 @@ export default function AppSideBar({
     {
       key: "users",
       icon: <TeamOutlined />,
-      label: "Users",
+      label: <BadgeLabel label="Users" count={counts?.users ?? 0} />,
       hasPermission: hasAnyPermission(PermissionGroups.User),
       children: [
         {
           key: "/app/users",
           icon: <UserOutlined />,
           label: "Players",
-          hasPermission: hasPermission(Permission.VIEW_USER),
-        },
-        {
-          key: "/app/users/player-stats",
-          icon: <LineChartOutlined />,
-          label: "Player Stats",
           hasPermission: hasPermission(Permission.VIEW_USER),
         },
         {
@@ -96,43 +106,43 @@ export default function AppSideBar({
     {
       key: "/app/turfs",
       icon: <EnvironmentOutlined />,
-      label: "Turfs",
+      label: <BadgeLabel label="Turfs" count={counts?.turfs ?? 0} />,
       hasPermission: hasAnyPermission(PermissionGroups.Turf),
     },
     {
       key: "/app/teams",
       icon: <TeamOutlined />,
-      label: "Teams",
+      label: <BadgeLabel label="Teams" count={counts?.teams ?? 0} />,
       hasPermission: hasAnyPermission(PermissionGroups.Team),
     },
     {
       key: "/app/tournaments",
       icon: <TrophyOutlined />,
-      label: "Tournaments",
+      label: <BadgeLabel label="Tournaments" count={counts?.tournaments ?? 0} />,
       hasPermission: hasAnyPermission(PermissionGroups.Tournament),
     },
     {
       key: "/app/matches",
       icon: <ThunderboltOutlined />,
-      label: "Matches",
+      label: <BadgeLabel label="Matches" count={counts?.matches ?? 0} />,
       hasPermission: hasAnyPermission(PermissionGroups.Match),
     },
     {
       key: "/app/transactions",
       icon: <CreditCardOutlined />,
-      label: "Transactions",
+      label: <BadgeLabel label="Transactions" count={counts?.payments ?? 0} />,
       hasPermission: hasAnyPermission(PermissionGroups.Transaction),
     },
     {
       key: "/app/reports",
       icon: <BarsOutlined />,
-      label: <Link href="/app/reports">Reports</Link>,
+      label: "Reports",
       hasPermission: hasAnyPermission(PermissionGroups.Report),
     },
     {
       key: "/app/system-logs",
       icon: <HistoryOutlined />,
-      label: <Link href="/app/system-logs">System Logs</Link>,
+      label: "System Logs",
       hasPermission: hasPermission(Permission.VIEW_SYSTEM_LOG),
     },
     {
@@ -144,23 +154,22 @@ export default function AppSideBar({
         {
           key: "/app/settings",
           icon: <SettingOutlined />,
-          label: <Link href="/app/settings">General</Link>,
+          label: "General",
           hasPermission: hasAnyPermission(PermissionGroups.Settings),
         },
         {
           key: "/app/profile",
           icon: <UserOutlined />,
-          label: <Link href="/app/profile">My Profile</Link>,
-          hasPermission: hasAnyPermission(PermissionGroups.Settings),
+          label: "My Profile",
+          hasPermission: hasAnyPermission(PermissionGroups.SystemUser),
         },
       ],
     },
   ];
 
-  // Build Ant Design MenuItem array, fully typed
   const filtered: MenuItem[] = menuItems
-    .filter((item) => item.hasPermission)
-    .map((item): MenuItem => {
+  .filter((item): item is SidebarItem => !!item && item.hasPermission)
+  .map((item): MenuItem => {
       if (item.children) {
         return {
           key: item.key,
@@ -168,67 +177,107 @@ export default function AppSideBar({
           label: item.label,
           children: item.children
             .filter((child) => child.hasPermission)
-            .map(
-              (child): MenuItem => ({
-                key: child.key,
-                icon: child.icon,
-                label: child.label,
-              }),
-            ),
+            .map((child): MenuItem => ({
+              key: child.key,
+              icon: child.icon,
+              label: child.label,
+            })),
         };
       }
-      return {
-        key: item.key,
-        icon: item.icon,
-        label: item.label,
-      };
+      return { key: item.key, icon: item.icon, label: item.label };
     });
 
-  const firstKey =
-    (filtered[0] as { key?: string } | null)?.key ?? "/app/dashboard";
+  // Derive selected key from current pathname
+  const selectedKey = (() => {
+    // Exact match first
+    const exact = filtered.find((item) => {
+  if (!item) return false; // 👈 fix
+
+  if ("key" in item && item.key === pathname) return true;
+  const children = (item as { children?: { key: unknown }[] }).children;
+  return children?.some((c) => c.key === pathname);
+});
+    if (exact) return pathname;
+    // Prefix match (e.g. /app/users/123 → /app/users)
+    const segments = pathname.split("/").filter(Boolean);
+    while (segments.length > 1) {
+      segments.pop();
+      const candidate = "/" + segments.join("/");
+      const found = filtered.some((item) => {
+        if (!item) return false;
+
+        if ("key" in item && item.key === candidate) return true;
+        const children = (item as { children?: { key: unknown }[] }).children;
+        return children?.some((c) => c.key === candidate);
+      });
+      if (found) return candidate;
+    }
+    return pathname;
+  })();
+
+  const width = collapsed ? COLLAPSED_W : EXPANDED_W;
 
   return (
-    <div
-      className={`h-screen shrink-0 z-10 flex relative flex-col overflow-y-auto ${
-        !collapsed ? "w-50" : "w-20"
-      } ${className}`}
-    >
+    <>
+      {!collapsed && (
+        <div
+          className="fixed inset-0 bg-black/30 z-10 md:hidden"
+          onClick={onClose}
+          aria-hidden
+        />
+      )}
+
       <div
-        className={`fixed h-full bg-white border-e ${
-          !collapsed ? "w-50" : "w-20"
-        }`}
+        className={`fixed top-0 left-0 h-screen z-20 flex flex-col bg-white border-e border-slate-800/10 shadow-sm
+          transition-[width] duration-300 ease-in-out overflow-hidden ${className}`}
+        style={{ width }}
       >
         <div
-          className={"flex flex-col items-center justify-center px-4 font-bold text-white bg-primary h-15"}
+          className="flex flex-col items-center justify-center font-bold text-white bg-primary shrink-0 overflow-hidden"
+          style={{ height: 60, minHeight: 60 }}
         >
           <MKRSportsLogo collapsed={collapsed} />
-          {!collapsed && (
-            <span className="text-xs font-semibold tracking-widest uppercase mt-1 text-white/80">
-              Admin
-            </span>
-          )}
+          <span
+            className="text-xs font-semibold tracking-widest uppercase text-white/80 mt-1
+              transition-opacity duration-200"
+            style={{ opacity: collapsed ? 0 : 1, height: collapsed ? 0 : "auto" }}
+          >
+            Admin
+          </span>
         </div>
 
-        <Sider
-          style={{
-            ...siderStyle,
-            height: "calc(100vh - 60px)",
-            overflowY: "auto",
-            overflowX: "hidden",
-          }}
-          trigger={null}
-          collapsible
-          collapsed={collapsed}
-          className="bg-white"
-        >
-          <Menu
-            mode="inline"
-            onClick={({ key }) => router.push(key)}
-            defaultSelectedKeys={[firstKey]}
-            items={filtered}
-          />
-        </Sider>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <Sider
+            trigger={null}
+            collapsible
+            collapsed={collapsed}
+            collapsedWidth={COLLAPSED_W}
+            width={EXPANDED_W}
+            className="bg-white! min-h-0! h-auto!"
+            style={{ background: "white" }}
+          >
+            <Menu
+              mode="inline"
+              selectedKeys={[selectedKey]}
+              defaultOpenKeys={collapsed ? [] : ["users", "settings"]}
+              onClick={({ key }) => {
+                router.push(key);
+                // Auto-close on mobile after navigation
+                if (window.innerWidth < 768) onClose?.();
+              }}
+              items={filtered}
+              className="border-none!"
+              inlineCollapsed={collapsed}
+            />
+          </Sider>
+        </div>
       </div>
-    </div>
+
+      <div
+        className="shrink-0 transition-[width] duration-300 ease-in-out"
+        style={{ width }}
+        aria-hidden
+      />
+    </>
   );
 }

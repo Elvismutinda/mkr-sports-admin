@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/requirePermission";
 import { Permission } from "@/_utils/enums/permissions.enum";
+import { getActor } from "@/lib/auth/getActor";
+import { logAction } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const authError = await requirePermission(req, Permission.VIEW_ROLE);
@@ -38,7 +40,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(enriched, { status: 200 });
   } catch (error) {
     console.error("[GET /api/admin/roles]", error);
-    return NextResponse.json({ error: "Failed to fetch roles" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch roles" },
+      { status: 500 },
+    );
   }
 }
 
@@ -50,7 +55,10 @@ export async function POST(req: NextRequest) {
     const { name, description, permissionKeys } = await req.json();
 
     if (!name?.trim()) {
-      return NextResponse.json({ error: "Role name is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Role name is required" },
+        { status: 400 },
+      );
     }
 
     // Check for duplicate
@@ -61,7 +69,10 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (existing) {
-      return NextResponse.json({ error: "A role with this name already exists." }, { status: 409 });
+      return NextResponse.json(
+        { error: "A role with this name already exists." },
+        { status: 409 },
+      );
     }
 
     // Create role
@@ -83,13 +94,33 @@ export async function POST(req: NextRequest) {
         .map((k: string) => ({ roleId: newRole.id, permissionId: permMap[k] }));
 
       if (assignments.length > 0) {
-        await db.insert(rolePermission).values(assignments).onConflictDoNothing();
+        await db
+          .insert(rolePermission)
+          .values(assignments)
+          .onConflictDoNothing();
       }
     }
 
-    return NextResponse.json({ message: "Role created.", data: newRole }, { status: 201 });
+    const actor = await getActor(req);
+    logAction({
+      actorId: actor?.id,
+      actorType: "system_user",
+      action: "CREATE_ROLE",
+      entityType: "system_role",
+      entityId: newRole.id,
+      description: `Created role "${newRole.name}"${Array.isArray(permissionKeys) ? ` with ${permissionKeys.length} permissions` : ""}`,
+      req,
+    });
+
+    return NextResponse.json(
+      { message: "Role created.", data: newRole },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[POST /api/admin/roles]", error);
-    return NextResponse.json({ error: "Failed to create role" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create role" },
+      { status: 500 },
+    );
   }
 }

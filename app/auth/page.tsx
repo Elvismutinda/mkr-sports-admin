@@ -109,7 +109,7 @@ export default function AuthPage() {
             loading={loading}
             className="w-full"
           >
-            {loading ? "Authenticating..." : "Login"}
+            {loading ? "Authenticating..." : "Authenticate"}
           </Button>
         </Form.Item>
       </Form>

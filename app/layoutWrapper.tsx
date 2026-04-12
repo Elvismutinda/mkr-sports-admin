@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from "antd";
 import { SessionProvider } from "next-auth/react";
