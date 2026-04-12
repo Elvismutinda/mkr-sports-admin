@@ -5,8 +5,6 @@ import {
   exportToCSV,
 } from "@/services/api/reports.service";
 
-
-
 export function ResultSection<T extends object>({
   data, columns, summary, reportName,
 }: {
