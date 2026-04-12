@@ -133,7 +133,7 @@ export default function PaymentsPage() {
           { label: "Pending", value: pendingCount, color: "text-amber-500" },
           { label: "Failed", value: failedCount, color: "text-red-500" },
         ].map((c) => (
-          <div key={c.label} className="bg-white rounded-xl p-4 border">
+          <div key={c.label} className="bg-white rounded-xl p-4">
             <p className="text-xs text-slate-400 mb-1">{c.label}</p>
             <p className={`text-xl font-black ${c.color}`}>{c.value}</p>
           </div>
