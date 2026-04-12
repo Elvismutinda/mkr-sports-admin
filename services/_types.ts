@@ -301,3 +301,49 @@ export interface SystemLogsResponse {
   };
   meta: { actions: string[]; entityTypes: string[] };
 }
+
+export interface DashboardData {
+  totals: {
+    players: number;
+    agents: number;
+    turfs: number;
+    teams: number;
+    matches: number;
+    tournaments: number;
+  };
+  players: {
+    thisMonth: number;
+    lastMonth: number;
+    growth: number;
+  };
+  revenue: {
+    total: number;
+    thisMonth: number;
+    lastMonth: number;
+    growth: number;
+    pendingPayments: number;
+    failedPayments: number;
+  };
+  matches: {
+    upcoming: number;
+    live: number;
+    completedThisMonth: number;
+  };
+  tournaments: {
+    upcoming: number;
+    ongoing: number;
+  };
+  charts: {
+    registrationTrend: { date: string; count: number }[];
+    revenueTrend: { date: string; revenue: number }[];
+    matchModeDistribution: { mode: string; count: number }[];
+  };
+  topTurfs: { name: string; city: string; matchCount: number }[];
+  recentActivity: {
+    id: string;
+    action: string;
+    entityType: string | null;
+    description: string | null;
+    createdAt: string;
+  }[];
+}

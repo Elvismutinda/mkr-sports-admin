@@ -77,7 +77,7 @@ export async function sendAgentInviteEmail(
   name: string,
   token: string,
 ) {
-  const link = `${CLIENT_URL}/auth/reset-password?token=${token}`;
+  const link = `${CLIENT_URL}/reset-password?token=${token}`;
  
   await transporter.sendMail({
     from: FROM,

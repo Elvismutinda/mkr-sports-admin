@@ -179,7 +179,6 @@ export default function PaymentsPage() {
           total: data?.pagination.total,
           pageSize: data?.pagination.limit,
           showSizeChanger: true,
-          showTotal: (total) => `${total} payments`,
         }}
       />
     </main>

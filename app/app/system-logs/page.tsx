@@ -576,7 +576,6 @@ export default function SystemLogsPage() {
             current: page,
             total: data?.pagination.total,
             pageSize: 50,
-            showTotal: (total) => `${total.toLocaleString()} logs`,
             onChange: (p) => setPage(p),
             showSizeChanger: false,
           }}
@@ -601,7 +600,7 @@ export default function SystemLogsPage() {
         }
         open={!!detailLog}
         onClose={() => setDetailLog(null)}
-        width={560}
+        size={560}
         destroyOnHidden
       >
         {detailLog && (

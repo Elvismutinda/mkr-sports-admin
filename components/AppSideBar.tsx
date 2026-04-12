@@ -161,7 +161,7 @@ export default function AppSideBar({
           key: "/app/profile",
           icon: <UserOutlined />,
           label: "My Profile",
-          hasPermission: hasAnyPermission(PermissionGroups.SystemUser),
+          hasPermission: true,
         },
       ],
     },

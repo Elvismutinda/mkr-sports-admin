@@ -174,7 +174,7 @@ export default function ProfilePage() {
     <main className="flex flex-col gap-6 min-h-screen">
       <h2 className="text-2xl font-bold">My Profile</h2>
 
-      <div className="flex flex-row items-center gap-5 bg-white rounded-xl p-5 border">
+      <div className="flex flex-row items-center gap-5 bg-white rounded-xl p-5 border border-slate-800/20">
         {isLoading ? (
           <Skeleton.Avatar size={72} active />
         ) : (
@@ -226,7 +226,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="flex flex-col gap-4 bg-white rounded-xl p-5 border">
+        <div className="flex flex-col gap-4 bg-white rounded-xl p-5 border border-slate-800/20">
           <div className="border-b pb-3">
             <p className="text-base font-bold">Edit Profile</p>
             <p className="text-sm text-slate-500">Update your personal information</p>
@@ -285,7 +285,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-4 bg-white rounded-xl p-5 border">
+        <div className="flex flex-col gap-4 bg-white rounded-xl p-5 border border-slate-800/20">
           <div className="border-b pb-3">
             <p className="text-base font-bold">Password Settings</p>
             <p className="text-sm text-slate-500">
