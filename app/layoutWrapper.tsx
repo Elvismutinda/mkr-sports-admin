@@ -13,11 +13,7 @@ export default function AppLayoutWrapper({
 }: {
   children: React.ReactNode;
 }) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // useEffect(() => {
-  //   setIsDarkMode(false);
-  // }, []);
+  const [isDarkMode] = useState(false);
 
   return (
     <SessionProvider>
