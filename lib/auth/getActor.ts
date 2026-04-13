@@ -28,7 +28,6 @@ function resolveTokenOptions(req: NextRequest) {
 /**
  * Extracts the authenticated system user from the JWT token.
  * Returns null if the request is unauthenticated.
- * Uses the same cookie resolution logic as requirePermission.ts.
  */
 export async function getActor(req: NextRequest): Promise<Actor | null> {
   const token = await getToken(resolveTokenOptions(req));
