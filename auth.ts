@@ -4,6 +4,8 @@ import { db } from "@/lib/db/db";
 import { systemUser, rolePermission, permission } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 export const {
   handlers: { GET, POST },
   auth,
@@ -11,6 +13,27 @@ export const {
   signOut,
 } = NextAuth({
   ...authConfig,
+
+  // ── Critical for Vercel / reverse-proxy deployments ──────────────────────
+  // Without trustHost: true, NextAuth rejects requests where the Host header
+  // doesn't exactly match NEXTAUTH_URL, which happens behind Vercel's edge.
+  trustHost: true,
+
+  // Explicitly configure the session cookie so the name is predictable and
+  // matches exactly what getToken() will look for in requirePermission.ts.
+  cookies: {
+    sessionToken: {
+      name: isProduction
+        ? "__Secure-authjs.session-token"
+        : "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: isProduction,
+      },
+    },
+  },
 
   callbacks: {
     /**
@@ -33,24 +56,34 @@ export const {
      * propagate without forcing a re-login.
      */
     async jwt({ token, user }) {
+      // First call after authorize() — user object is present
       if (user) {
         token.id = user.id;
-        token.permissions = user.permissions ?? [];
-        token.roleId = user.roleId ?? null;
+        token.sub = user.id; // keep sub in sync so both fields are reliable
+        token.permissions =
+          (user as { permissions?: string[] }).permissions ?? [];
+        token.roleId = (user as { roleId?: string | null }).roleId ?? null;
         return token;
       }
 
-      // Refresh permissions on every token rotation
-      if (token.id && token.roleId) {
+      // Subsequent calls — refresh permissions from DB so role changes
+      // propagate immediately without forcing re-login.
+      const actorId = (token.id ?? token.sub) as string | undefined;
+      const roleId = token.roleId as string | null | undefined;
+
+      if (actorId && roleId) {
         try {
           const perms = await db
             .select({ key: permission.key })
             .from(rolePermission)
-            .innerJoin(permission, eq(rolePermission.permissionId, permission.id))
-            .where(eq(rolePermission.roleId, token.roleId as string));
+            .innerJoin(
+              permission,
+              eq(rolePermission.permissionId, permission.id),
+            )
+            .where(eq(rolePermission.roleId, roleId));
           token.permissions = perms.map((p) => p.key);
         } catch {
-          // Keep stale permissions if DB is unavailable
+          // Keep stale permissions if DB is temporarily unavailable
         }
       }
 
@@ -59,9 +92,11 @@ export const {
 
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.permissions = token.permissions as string[] ?? [];
-        session.user.roleId = token.roleId ?? null;
+        session.user.id = (token.id ?? token.sub) as string;
+        session.user.permissions =
+          (token.permissions as string[] | undefined) ?? [];
+        session.user.roleId =
+          (token.roleId as string | null | undefined) ?? null;
       }
       return session;
     },
@@ -74,6 +109,6 @@ export const {
 
   session: {
     strategy: "jwt",
-    maxAge: 8 * 60 * 60, // 8-hour admin sessions
+    maxAge: 8 * 60 * 60,
   },
 });
