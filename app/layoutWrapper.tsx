@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from "antd";
 import { SessionProvider } from "next-auth/react";
@@ -13,7 +13,7 @@ export default function AppLayoutWrapper({
 }: {
   children: React.ReactNode;
 }) {
-  const [isDarkMode] = useState(false);
+  // const [isDarkMode] = useState(false);
 
   return (
     <SessionProvider>
@@ -23,9 +23,10 @@ export default function AppLayoutWrapper({
             token: {
               colorPrimary: "#2a79b5",
             },
-            algorithm: isDarkMode
-              ? antdTheme.darkAlgorithm
-              : antdTheme.defaultAlgorithm,
+            // algorithm: isDarkMode
+            //   ? antdTheme.darkAlgorithm
+            //   : antdTheme.defaultAlgorithm,
+            algorithm: antdTheme.defaultAlgorithm,
           }}
         >
           <AntdApp>

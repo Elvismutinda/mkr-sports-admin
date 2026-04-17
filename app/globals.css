@@ -27,18 +27,18 @@
 /* ───────────────────────────
    Dark mode (kept your behavior)
 ─────────────────────────── */
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
 /* If you want class-based dark mode (like before) */
-.dark {
+/* .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
-}
+} */
 
 /* ───────────────────────────
    Base styles
