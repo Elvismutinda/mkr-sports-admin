@@ -7,6 +7,7 @@ import {
   Descriptions,
   Drawer,
   Input,
+  Modal,
   Select,
   Table,
   Tag,
@@ -14,7 +15,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { SwapOutlined, SyncOutlined } from "@ant-design/icons";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useSystemLogs } from "@/services/api/system-logs.service";
@@ -22,22 +23,20 @@ import type { SystemLogRow } from "@/services/_types";
 
 dayjs.extend(relativeTime);
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type DiffType = "changed" | "added" | "removed" | "unchanged";
 
-type DiffRow = {
+interface DiffRow {
   field: string;
   before: string;
   after: string;
-  type: "changed" | "added" | "removed" | "unchanged";
-};
+  type: DiffType;
+}
 
-type MetadataShape = {
+interface MetadataShape {
   before?: Record<string, unknown> | null;
   after?: Record<string, unknown> | null;
   [key: string]: unknown;
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+}
 
 function getActionColor(action: string): string {
   const a = action.toUpperCase();
@@ -56,8 +55,6 @@ function getActionColor(action: string): string {
     a.startsWith("SUSPEND")
   )
     return "red";
-  if (a.startsWith("VIEW") || a.startsWith("GET") || a.startsWith("FETCH"))
-    return "default";
   if (a.startsWith("LOGIN") || a.startsWith("LOGOUT") || a.startsWith("AUTH"))
     return "purple";
   if (
@@ -70,6 +67,17 @@ function getActionColor(action: string): string {
   return "orange";
 }
 
+function serialize(v: unknown): string {
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "boolean" || typeof v === "number") return String(v);
+  if (typeof v === "string") return v;
+  try {
+    return JSON.stringify(v, null, 2);
+  } catch {
+    return "[unserializable]";
+  }
+}
+
 function buildDiff(
   before: Record<string, unknown> | null | undefined,
   after: Record<string, unknown> | null | undefined,
@@ -78,31 +86,24 @@ function buildDiff(
     ...Object.keys(before ?? {}),
     ...Object.keys(after ?? {}),
   ]);
-  return Array.from(allKeys).map((field) => {
+  return Array.from(allKeys).map((field): DiffRow => {
     const b = before?.[field] ?? null;
     const a = after?.[field] ?? null;
-    const bStr =
-      b === null ? "—" : typeof b === "object" ? JSON.stringify(b) : String(b);
-    const aStr =
-      a === null ? "—" : typeof a === "object" ? JSON.stringify(a) : String(a);
-    const changed = JSON.stringify(b) !== JSON.stringify(a);
-    let type: DiffRow["type"] = "unchanged";
-    if (changed) {
-      if (b === null) type = "added";
-      else if (a === null) type = "removed";
+    let type: DiffType = "unchanged";
+    if (JSON.stringify(b) !== JSON.stringify(a)) {
+      if (b === null || b === undefined) type = "added";
+      else if (a === null || a === undefined) type = "removed";
       else type = "changed";
     }
-    return { field, before: bStr, after: aStr, type };
+    return { field, before: serialize(b), after: serialize(a), type };
   });
 }
 
 function hasDiffMetadata(metadata: unknown): metadata is MetadataShape {
   if (!metadata || typeof metadata !== "object") return false;
   const m = metadata as MetadataShape;
-  return m.before !== undefined || m.after !== undefined;
+  return "before" in m || "after" in m;
 }
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ActorBadge({
   type,
@@ -111,10 +112,12 @@ function ActorBadge({
   type: string | null;
   name: string | null;
 }) {
-  if (!type) return <span>System</span>;
+  if (!type) return <span className="text-slate-400 text-xs">System</span>;
   return (
     <div className="flex flex-col gap-0.5">
-      <span>{name ?? "Unknown"}</span>
+      <span className="text-xs font-medium leading-none">
+        {name ?? "Unknown"}
+      </span>
       <Tag
         className="w-fit text-[10px] px-1 py-0 leading-4 m-0 capitalize"
         color={type === "system_user" ? "blue" : "green"}
@@ -125,199 +128,346 @@ function ActorBadge({
   );
 }
 
-function MetaView({ value }: { value: unknown }) {
-  if (!value) {
-    return <span className="text-slate-400 text-xs">—</span>;
-  }
-  let str: string;
-  try {
-    str = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  } catch {
-    return <span className="text-slate-400 text-xs">Unreadable</span>;
-  }
+
+function DiffTable({ rows }: { rows: DiffRow[] }) {
+  const rowBg = (t: DiffType) =>
+    t === "added"
+      ? "#f0fdf4"
+      : t === "removed"
+        ? "#fff1f2"
+        : t === "changed"
+          ? "#fffbeb"
+          : "white";
+
+  const beforeColor = (t: DiffType): string =>
+    t === "changed" || t === "removed" ? "#ef4444" : "#94a3b8";
+
+  const afterColor = (t: DiffType): string =>
+    t === "changed" || t === "added" ? "#16a34a" : "#94a3b8";
+
   return (
-    <pre className="text-xs bg-slate-50 rounded p-2 overflow-auto max-h-64 border whitespace-pre-wrap break-all">
-      {str}
-    </pre>
-  );
-}
-
-function ChangesTable({ metadata }: { metadata: MetadataShape }) {
-  const [showUnchanged, setShowUnchanged] = useState(false);
-  const diff = buildDiff(metadata.before, metadata.after);
-  const changedRows = diff.filter((r) => r.type !== "unchanged");
-  const unchangedRows = diff.filter((r) => r.type === "unchanged");
-  const extraKeys = Object.keys(metadata).filter(
-    (k) => k !== "before" && k !== "after",
-  );
-
-  if (diff.length === 0 && extraKeys.length === 0) {
-    return (
-      <p className="text-xs text-slate-400 italic">No field data recorded.</p>
-    );
-  }
-
-  const rowBg = (type: DiffRow["type"]) => {
-    if (type === "added") return "#f0fdf4";
-    if (type === "removed") return "#fff1f2";
-    if (type === "changed") return "#fffbeb";
-    return undefined;
-  };
-
-  const beforeStyle = (type: DiffRow["type"]): React.CSSProperties => {
-    if (type === "added") return { color: "#94a3b8" };
-    if (type === "changed" || type === "removed")
-      return { color: "#ef4444", textDecoration: "line-through" };
-    return { color: "#94a3b8" };
-  };
-
-  const afterStyle = (type: DiffRow["type"]): React.CSSProperties => {
-    if (type === "removed") return { color: "#94a3b8" };
-    if (type === "changed" || type === "added")
-      return { color: "#16a34a", fontWeight: 500 };
-    return { color: "#94a3b8" };
-  };
-
-  const gridStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-  };
-
-  const tableHeader = (
-    <div
-      style={{
-        ...gridStyle,
-        backgroundColor: "#f8fafc",
-        borderBottom: "1px solid #e2e8f0",
-        padding: "5px 10px",
-        fontSize: 11,
-        fontWeight: 600,
-        color: "#64748b",
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-      }}
-    >
-      <span>Field</span>
-      <span>Before</span>
-      <span>After</span>
-    </div>
-  );
-
-  const renderRow = (row: DiffRow, i: number) => (
-    <div
-      key={row.field}
-      style={{
-        ...gridStyle,
-        padding: "6px 10px",
-        borderTop: i > 0 ? "1px solid #e2e8f0" : undefined,
-        backgroundColor: rowBg(row.type),
-        fontSize: 12,
-        gap: 4,
-      }}
-    >
-      <span style={{ fontFamily: "monospace", color: "#475569" }}>
-        {row.field}
-      </span>
-      <span
-        style={{
-          fontFamily: "monospace",
-          wordBreak: "break-all",
-          paddingRight: 4,
-          ...beforeStyle(row.type),
-        }}
-      >
-        {row.before}
-      </span>
-      <span
-        style={{
-          fontFamily: "monospace",
-          wordBreak: "break-all",
-          ...afterStyle(row.type),
-        }}
-      >
-        {row.after}
-      </span>
-    </div>
-  );
-
-  const tableWrap = (rows: DiffRow[]) => (
     <div
       style={{
         border: "1px solid #e2e8f0",
-        borderRadius: 6,
+        borderRadius: 8,
         overflow: "hidden",
       }}
     >
-      {tableHeader}
-      {rows.map((row, i) => renderRow(row, i))}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "180px 1fr 1fr",
+          padding: "7px 14px",
+          backgroundColor: "#f8fafc",
+          borderBottom: "1px solid #e2e8f0",
+          fontSize: 11,
+          fontWeight: 700,
+          color: "#64748b",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
+        <span>Field</span>
+        <span>Before</span>
+        <span>After</span>
+      </div>
+      {rows.map((row) => (
+        <div
+          key={row.field}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "180px 1fr 1fr",
+            padding: "9px 14px",
+            gap: 8,
+            backgroundColor: rowBg(row.type),
+            borderBottom: "1px solid #f1f5f9",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontWeight: 600,
+              color: "#475569",
+              fontSize: 12,
+            }}
+          >
+            {row.field}
+          </span>
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 12,
+              wordBreak: "break-all",
+              whiteSpace: "pre-wrap",
+              color: beforeColor(row.type),
+              textDecoration:
+                row.type === "changed" || row.type === "removed"
+                  ? "line-through"
+                  : "none",
+            }}
+          >
+            {row.before}
+          </span>
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 12,
+              wordBreak: "break-all",
+              whiteSpace: "pre-wrap",
+              color: afterColor(row.type),
+              fontWeight:
+                row.type === "changed" || row.type === "added" ? 600 : 400,
+            }}
+          >
+            {row.after}
+          </span>
+        </div>
+      ))}
     </div>
+  );
+}
+
+function ChangesModalInner({
+  log,
+}: {
+  log: SystemLogRow;
+  onClose: () => void;
+}) {
+  const [showUnchanged, setShowUnchanged] = useState(false);
+
+  if (!hasDiffMetadata(log.metadata)) return null;
+
+  const meta = log.metadata as MetadataShape;
+  const diff = buildDiff(meta.before ?? undefined, meta.after ?? undefined);
+  const changed = diff.filter((r) => r.type !== "unchanged");
+  const unchanged = diff.filter((r) => r.type === "unchanged");
+  const extraKeys = Object.keys(meta).filter(
+    (k) => k !== "before" && k !== "after",
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      {changedRows.length > 0 && (
+    <div className="flex flex-col gap-5">
+      <div className="flex gap-x-6 gap-y-1 flex-wrap text-sm">
+        {log.actorName && (
+          <span>
+            <span className="text-slate-400 mr-1">Performed by:</span>
+            <span className="font-medium">{log.actorName}</span>
+          </span>
+        )}
+        {log.entityType && (
+          <span>
+            <span className="text-slate-400 mr-1">Entity:</span>
+            <span className="font-medium capitalize">{log.entityType}</span>
+          </span>
+        )}
+        {log.description && (
+          <span className="text-slate-500 italic">{log.description}</span>
+        )}
+      </div>
+
+      {changed.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
             Changed fields{" "}
-            <span className="font-normal text-slate-400">
-              ({changedRows.length})
+            <span className="font-normal normal-case text-slate-300">
+              ({changed.length})
             </span>
           </p>
-          {tableWrap(changedRows)}
+          <DiffTable rows={changed} />
         </div>
       )}
 
-      {unchangedRows.length > 0 && (
+      {unchanged.length > 0 && (
         <div>
           <button
             onClick={() => setShowUnchanged((s) => !s)}
-            style={{
-              fontSize: 11,
-              color: "#94a3b8",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              fontWeight: 600,
-              marginBottom: showUnchanged ? 6 : 0,
-            }}
+            className="text-xs text-slate-400 font-semibold uppercase tracking-widest flex items-center gap-1.5 hover:text-slate-600 transition-colors"
           >
             <span
               style={{
-                display: "inline-block",
                 fontSize: 8,
-                transform: showUnchanged ? "rotate(90deg)" : "rotate(0deg)",
+                display: "inline-block",
+                transform: showUnchanged ? "rotate(90deg)" : "none",
                 transition: "transform 0.15s",
               }}
             >
               ▶
             </span>
-            Unchanged fields ({unchangedRows.length})
+            Unchanged fields ({unchanged.length})
           </button>
-          {showUnchanged && tableWrap(unchangedRows)}
+          {showUnchanged && (
+            <div className="mt-2">
+              <DiffTable rows={unchanged} />
+            </div>
+          )}
         </div>
       )}
 
       {extraKeys.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
             Additional metadata
           </p>
-          <MetaView
-            value={Object.fromEntries(extraKeys.map((k) => [k, metadata[k]]))}
-          />
+          <pre className="text-xs bg-slate-50 rounded-lg p-3 border overflow-auto max-h-48 whitespace-pre-wrap break-all">
+            {JSON.stringify(
+              Object.fromEntries(extraKeys.map((k) => [k, meta[k]])),
+              null,
+              2,
+            )}
+          </pre>
         </div>
+      )}
+
+      {changed.length === 0 && unchanged.length === 0 && (
+        <p className="text-sm text-slate-400 italic">
+          No field data recorded for this action.
+        </p>
       )}
     </div>
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+function ChangesModal({
+  log,
+  onClose,
+}: {
+  log: SystemLogRow | null;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      open={!!log}
+      onCancel={onClose}
+      footer={<Button onClick={onClose}>Close</Button>}
+      title={
+        log ? (
+          <div className="flex items-center gap-3 flex-wrap">
+            <Tag
+              color={getActionColor(log.action)}
+              className="font-mono font-bold"
+            >
+              {log.action}
+            </Tag>
+            <span className="text-sm text-slate-500 font-normal">
+              {new Date(log.createdAt).toLocaleString("en-KE")}
+            </span>
+          </div>
+        ) : null
+      }
+      width={920}
+      key={log?.id ?? "empty"}
+      destroyOnHidden
+      styles={{
+        body: { maxHeight: "72vh", overflowY: "auto", padding: "16px 24px" },
+      }}
+    >
+      {log && <ChangesModalInner log={log} onClose={onClose} />}
+    </Modal>
+  );
+}
+
+function LogDrawer({
+  log,
+  onClose,
+  onViewChanges,
+}: {
+  log: SystemLogRow | null;
+  onClose: () => void;
+  onViewChanges: (log: SystemLogRow) => void;
+}) {
+  const drawerTitle = log ? (
+    <div className="flex items-center gap-3">
+      <Tag color={getActionColor(log.action)} className="font-mono">
+        {log.action}
+      </Tag>
+      <span className="text-sm text-slate-500 font-normal">
+        {new Date(log.createdAt).toLocaleString("en-KE")}
+      </span>
+    </div>
+  ) : undefined;
+
+  return (
+    <Drawer
+      open={!!log}
+      onClose={onClose}
+      size={520}
+      destroyOnHidden
+      title={drawerTitle}
+    >
+      {log && (
+        <div className="flex flex-col gap-5">
+          <Descriptions bordered size="small" column={1}>
+            <Descriptions.Item label="Actor">
+              <ActorBadge type={log.actorType} name={log.actorName} />
+            </Descriptions.Item>
+            <Descriptions.Item label="Actor ID">
+              <span className="font-mono text-xs">{log.actorId ?? "—"}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Action">
+              <Tag color={getActionColor(log.action)} className="font-mono">
+                {log.action}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Entity type">
+              <span className="capitalize">{log.entityType ?? "—"}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Entity ID">
+              <span className="font-mono text-xs">{log.entityId ?? "—"}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Description">
+              {log.description ?? "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="IP address">
+              <span className="font-mono">{log.ipAddress ?? "—"}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Timestamp">
+              {new Date(log.createdAt).toLocaleString("en-KE")}
+              <span className="text-slate-400 text-xs ml-2">
+                ({dayjs(log.createdAt).fromNow()})
+              </span>
+            </Descriptions.Item>
+          </Descriptions>
+
+          {log.userAgent && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                User Agent
+              </p>
+              <p className="text-xs text-slate-600 break-all bg-slate-50 rounded p-2 border">
+                {log.userAgent}
+              </p>
+            </div>
+          )}
+
+          {hasDiffMetadata(log.metadata) && (
+            <Button
+              type="primary"
+              icon={<SwapOutlined />}
+              onClick={() => {
+                onClose();
+                onViewChanges(log);
+              }}
+              style={{ background: "#2a79b5" }}
+            >
+              View Changes
+            </Button>
+          )}
+
+          {!hasDiffMetadata(log.metadata) && log.metadata != null && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Metadata
+              </p>
+              <pre className="text-xs bg-slate-50 rounded p-2 border overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                {serialize(log.metadata as Record<string, unknown>)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </Drawer>
+  );
+}
 
 export default function SystemLogsPage() {
   const [q, setQ] = useState("");
@@ -328,7 +478,31 @@ export default function SystemLogsPage() {
   const [dateFrom, setDateFrom] = useState<string | undefined>();
   const [dateTo, setDateTo] = useState<string | undefined>();
   const [page, setPage] = useState(1);
-  const [detailLog, setDetailLog] = useState<SystemLogRow | null>(null);
+  const [drawerLog, setDrawerLog] = useState<SystemLogRow | null>(null);
+  const [diffLog, setDiffLog] = useState<SystemLogRow | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearch = (value: string) => {
+    setQ(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDq(value);
+      setPage(1);
+    }, 300);
+  };
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    [],
+  );
+
+  const updateFilter =
+    <T,>(setter: (v: T) => void) =>
+    (v: T) => {
+      setter(v);
+      setPage(1);
+    };
 
   const { data, isLoading, isValidating, mutate } = useSystemLogs({
     q: dq,
@@ -341,31 +515,15 @@ export default function SystemLogsPage() {
     limit: 50,
   });
 
-  // Debounce search
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDq(q);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [q]);
-
-  const updateFilter =
-    <T,>(setter: (v: T) => void) =>
-    (value: T) => {
-      setter(value);
-      setPage(1);
-    };
-
   const columns: ColumnsType<SystemLogRow> = [
     {
       title: "Date",
       dataIndex: "createdAt",
       key: "date",
-      width: 100,
+      width: 105,
       render: (v: string) => (
         <Tooltip title={new Date(v).toLocaleString("en-KE")}>
-          <span>{dayjs(v).format("DD MMM YYYY")}</span>
+          <span className="text-xs">{dayjs(v).format("DD/MM/YYYY")}</span>
         </Tooltip>
       ),
     },
@@ -373,26 +531,16 @@ export default function SystemLogsPage() {
       title: "Time",
       dataIndex: "createdAt",
       key: "time",
-      width: 80,
+      width: 82,
       render: (v: string) => (
-        <Tooltip title={new Date(v).toLocaleString("en-KE")}>
-          <span>{dayjs(v).format("HH:mm:ss")}</span>
-        </Tooltip>
+        <span className="text-xs font-mono">{dayjs(v).format("HH:mm:ss")}</span>
       ),
     },
     {
-      title: "Actor",
-      key: "actor",
-      width: 160,
-      render: (_: unknown, r: SystemLogRow) => (
-        <ActorBadge type={r.actorType} name={r.actorName} />
-      ),
-    },
-    {
-      title: "Action",
+      title: "Operation",
       dataIndex: "action",
-      key: "action",
-      width: 200,
+      key: "op",
+      width: 185,
       render: (v: string) => (
         <Tag color={getActionColor(v)} className="font-mono text-xs">
           {v}
@@ -402,13 +550,15 @@ export default function SystemLogsPage() {
     {
       title: "Entity",
       key: "entity",
-      width: 160,
+      width: 165,
       render: (_: unknown, r: SystemLogRow) =>
         r.entityType ? (
           <div className="flex flex-col gap-0.5">
-            <span className="capitalize">{r.entityType}</span>
+            <span className="text-xs capitalize font-medium">
+              {r.entityType}
+            </span>
             {r.entityId && (
-              <span className="text-[10px] text-slate-400 font-mono truncate max-w-30">
+              <span className="text-[10px] text-slate-400 font-mono truncate max-w-32.5">
                 {r.entityId}
               </span>
             )}
@@ -418,33 +568,46 @@ export default function SystemLogsPage() {
         ),
     },
     {
+      title: "Performed By",
+      key: "actor",
+      width: 165,
+      render: (_: unknown, r: SystemLogRow) => (
+        <ActorBadge type={r.actorType} name={r.actorName} />
+      ),
+    },
+    {
       title: "Description",
       dataIndex: "description",
-      key: "description",
-      render: (v: string | null) => <span>{v ?? "—"}</span>,
+      key: "desc",
+      render: (v: string | null) => (
+        <span className="text-xs text-slate-600">{v ?? "—"}</span>
+      ),
     },
     {
-      title: "IP",
+      title: "IP Address",
       dataIndex: "ipAddress",
       key: "ip",
-      width: 130,
-      render: (v: string | null) => <span>{v ?? "—"}</span>,
+      width: 125,
+      render: (v: string | null) => (
+        <span className="text-xs font-mono text-slate-500">{v ?? "—"}</span>
+      ),
     },
     {
-      title: "Changes",
-      key: "changes",
-      width: 90,
+      title: "Action",
+      key: "btn",
+      width: 110,
       render: (_: unknown, r: SystemLogRow) =>
         hasDiffMetadata(r.metadata) ? (
           <Button
             type="primary"
-            size="medium"
+            size="small"
+            icon={<SwapOutlined />}
+            style={{ background: "#2a79b5", fontSize: 12 }}
             onClick={(e) => {
               e.stopPropagation();
-              setDetailLog(r);
+              setDiffLog(r);
             }}
           >
-            <SwapOutlined />
             Changes
           </Button>
         ) : (
@@ -453,15 +616,13 @@ export default function SystemLogsPage() {
     },
   ];
 
-  const actionOptions = (data?.meta.actions ?? []).map((a) => ({
-    label: a,
-    value: a,
-  }));
-
-  const entityTypeOptions = (data?.meta.entityTypes ?? []).map((e) => ({
-    label: e,
-    value: e,
-  }));
+  const activeFilters = [
+    actorType,
+    action,
+    entityType,
+    dateFrom,
+    dateTo,
+  ].filter(Boolean).length;
 
   return (
     <>
@@ -470,52 +631,52 @@ export default function SystemLogsPage() {
           <h2 className="text-2xl font-bold grow">System Logs</h2>
           <Badge
             count={data?.pagination.total ?? 0}
-            overflowCount={9999}
+            overflowCount={99999}
             color="blue"
           />
         </div>
 
-        <div className="flex gap-2 flex-wrap items-center bg-white p-3">
+        <div className="flex gap-2 flex-wrap items-center bg-white p-3 rounded-xl border">
           <Tooltip title="Refresh">
             <Button
               icon={<SyncOutlined spin={isValidating} />}
               onClick={() => mutate()}
             />
           </Tooltip>
-
           <Input
             placeholder="Search action, description, IP..."
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             style={{ width: 280 }}
             allowClear
+            onClear={() => handleSearch("")}
           />
-
           <Select
             value={actorType}
             onChange={updateFilter(setActorType)}
             allowClear
-            placeholder="Actor type"
-            style={{ width: 150 }}
+            placeholder="Performed by"
+            style={{ width: 160 }}
             options={[
               { label: "Admin User", value: "system_user" },
               { label: "Player / Agent", value: "user" },
             ]}
           />
-
           <Select
             value={action}
             onChange={updateFilter(setAction)}
             allowClear
-            placeholder="Action"
-            style={{ width: 180 }}
+            placeholder="Operation"
+            style={{ width: 190 }}
             showSearch
-            options={actionOptions}
-            filterOption={(input, option) =>
-              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+            options={(data?.meta.actions ?? []).map((a) => ({
+              label: a,
+              value: a,
+            }))}
+            filterOption={(input, opt) =>
+              (opt?.label ?? "").toLowerCase().includes(input.toLowerCase())
             }
           />
-
           <Select
             value={entityType}
             onChange={updateFilter(setEntityType)}
@@ -523,26 +684,26 @@ export default function SystemLogsPage() {
             placeholder="Entity type"
             style={{ width: 150 }}
             showSearch
-            options={entityTypeOptions}
+            options={(data?.meta.entityTypes ?? []).map((e) => ({
+              label: e,
+              value: e,
+            }))}
           />
-
           <DatePicker
-            placeholder="From date"
+            placeholder="Start date"
             onChange={(d) =>
               updateFilter(setDateFrom)(d?.startOf("day").toISOString())
             }
             allowClear
           />
           <DatePicker
-            placeholder="To date"
+            placeholder="End date"
             onChange={(d) =>
               updateFilter(setDateTo)(d?.endOf("day").toISOString())
             }
             allowClear
           />
-
-          {[actorType, action, entityType, dateFrom, dateTo].filter(Boolean)
-            .length > 0 && (
+          {activeFilters > 0 && (
             <Button
               size="small"
               danger
@@ -552,11 +713,10 @@ export default function SystemLogsPage() {
                 setEntityType(undefined);
                 setDateFrom(undefined);
                 setDateTo(undefined);
-                setQ("");
-                setPage(1);
+                handleSearch("");
               }}
             >
-              Clear filters
+              Clear filters ({activeFilters})
             </Button>
           )}
         </div>
@@ -569,110 +729,27 @@ export default function SystemLogsPage() {
           bordered
           size="small"
           onRow={(r) => ({
-            onClick: () => setDetailLog(r),
-            className: "cursor-pointer hover:bg-slate-50",
+            onClick: () => setDrawerLog(r),
+            className: "cursor-pointer hover:bg-slate-50 transition-colors",
           })}
           pagination={{
             current: page,
             total: data?.pagination.total,
             pageSize: 50,
+            showTotal: (t) => `${t.toLocaleString()} entries`,
             onChange: (p) => setPage(p),
             showSizeChanger: false,
           }}
         />
       </main>
 
-      <Drawer
-        title={
-          <div className="flex items-center gap-3">
-            <Tag
-              color={getActionColor(detailLog?.action ?? "")}
-              className="font-mono"
-            >
-              {detailLog?.action}
-            </Tag>
-            <span className="text-sm text-slate-500 font-normal">
-              {detailLog?.createdAt
-                ? new Date(detailLog.createdAt).toLocaleString("en-KE")
-                : ""}
-            </span>
-          </div>
-        }
-        open={!!detailLog}
-        onClose={() => setDetailLog(null)}
-        size={560}
-        destroyOnHidden
-      >
-        {detailLog && (
-          <div className="flex flex-col gap-6">
-            <Descriptions bordered size="small" column={1}>
-              <Descriptions.Item label="Actor">
-                <ActorBadge
-                  type={detailLog.actorType}
-                  name={detailLog.actorName}
-                />
-              </Descriptions.Item>
-              <Descriptions.Item label="Actor ID">
-                <span className="font-mono text-xs">
-                  {detailLog.actorId ?? "—"}
-                </span>
-              </Descriptions.Item>
-              <Descriptions.Item label="Action">
-                <Tag
-                  color={getActionColor(detailLog.action)}
-                  className="font-mono"
-                >
-                  {detailLog.action}
-                </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Entity type">
-                <span className="capitalize">
-                  {detailLog.entityType ?? "—"}
-                </span>
-              </Descriptions.Item>
-              <Descriptions.Item label="Entity ID">
-                <span className="font-mono text-xs">
-                  {detailLog.entityId ?? "—"}
-                </span>
-              </Descriptions.Item>
-              <Descriptions.Item label="Description">
-                {detailLog.description ?? "—"}
-              </Descriptions.Item>
-              <Descriptions.Item label="IP address">
-                <span className="font-mono">{detailLog.ipAddress ?? "—"}</span>
-              </Descriptions.Item>
-              <Descriptions.Item label="Timestamp">
-                {new Date(detailLog.createdAt).toLocaleString("en-KE")}
-                <span className="text-slate-400 text-xs ml-2">
-                  ({dayjs(detailLog.createdAt).fromNow()})
-                </span>
-              </Descriptions.Item>
-            </Descriptions>
+      <LogDrawer
+        log={drawerLog}
+        onClose={() => setDrawerLog(null)}
+        onViewChanges={(log) => setDiffLog(log)}
+      />
 
-            {detailLog.userAgent && (
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  User Agent
-                </p>
-                <p className="text-xs text-slate-600 break-all bg-slate-50 rounded p-2 border">
-                  {detailLog.userAgent}
-                </p>
-              </div>
-            )}
-
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                {hasDiffMetadata(detailLog.metadata) ? "Changes" : "Metadata"}
-              </p>
-              {hasDiffMetadata(detailLog.metadata) ? (
-                <ChangesTable metadata={detailLog.metadata} />
-              ) : (
-                <MetaView value={detailLog.metadata} />
-              )}
-            </div>
-          </div>
-        )}
-      </Drawer>
+      <ChangesModal log={diffLog} onClose={() => setDiffLog(null)} />
     </>
   );
 }

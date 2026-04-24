@@ -43,9 +43,22 @@ export async function PATCH(req: NextRequest) {
       currentPassword?: string;
       newPassword?: string;
     };
+
+    // Fetch current state for diff
+    const [existing] = await db
+      .select({
+        name: systemUser.name,
+        phone: systemUser.phone,
+        password: systemUser.password,
+      })
+      .from(systemUser)
+      .where(eq(systemUser.id, session.user.id))
+      .limit(1);
+
     const update: Record<string, unknown> = {};
     if (body.name?.trim()) update.name = body.name.trim();
     if (body.phone !== undefined) update.phone = body.phone?.trim() || null;
+
     if (body.newPassword) {
       if (!body.currentPassword)
         return NextResponse.json(
@@ -57,12 +70,10 @@ export async function PATCH(req: NextRequest) {
           { error: "New password must be at least 8 characters." },
           { status: 400 },
         );
-      const [{ password: storedHash }] = await db
-        .select({ password: systemUser.password })
-        .from(systemUser)
-        .where(eq(systemUser.id, session.user.id))
-        .limit(1);
-      const valid = await bcrypt.compare(body.currentPassword, storedHash);
+      const valid = await bcrypt.compare(
+        body.currentPassword,
+        existing.password,
+      );
       if (!valid)
         return NextResponse.json(
           { error: "Current password is incorrect." },
@@ -70,13 +81,29 @@ export async function PATCH(req: NextRequest) {
         );
       update.password = await bcrypt.hash(body.newPassword, 12);
     }
+
     if (Object.keys(update).length === 0)
       return NextResponse.json({ message: "Nothing to update." });
     await db
       .update(systemUser)
       .set(update)
       .where(eq(systemUser.id, session.user.id));
+
     const isPasswordChange = "password" in update;
+
+    // Build diff — never expose hashes
+    const safeKeys = Object.keys(update).filter((k) => k !== "password");
+    const changedBefore: Record<string, unknown> = {};
+    const changedAfter: Record<string, unknown> = {};
+    for (const key of safeKeys) {
+      changedBefore[key] = (existing as Record<string, unknown>)[key];
+      changedAfter[key] = update[key];
+    }
+    if (isPasswordChange) {
+      changedBefore.password = "[hidden]";
+      changedAfter.password = "[changed]";
+    }
+
     logAction({
       actorId: session.user.id,
       actorType: "system_user",
@@ -85,10 +112,10 @@ export async function PATCH(req: NextRequest) {
       entityId: session.user.id,
       description: isPasswordChange
         ? "Changed own password"
-        : `Updated profile fields: ${Object.keys(update).join(", ")}`,
+        : `Updated profile: ${safeKeys.join(", ")}`,
+      metadata: { before: changedBefore, after: changedAfter },
       req,
     });
-
     return NextResponse.json({ message: "Profile updated." });
   } catch (error) {
     console.error("[PATCH /api/admin/profile]", error);

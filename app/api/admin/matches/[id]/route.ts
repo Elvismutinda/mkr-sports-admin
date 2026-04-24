@@ -16,6 +16,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   if (authError) return authError;
   const { id } = await params;
   const body = await req.json();
+
+  const [before] = await db
+    .select()
+    .from(match)
+    .where(eq(match.id, id))
+    .limit(1);
+
   const update: Record<string, unknown> = {};
   const allowed = [
     "date",
@@ -40,6 +47,19 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
   await db.update(match).set(update).where(eq(match.id, id));
 
+  // Build before/after only for the fields that changed
+  const changedBefore: Record<string, unknown> = {};
+  const changedAfter: Record<string, unknown> = {};
+  for (const key of Object.keys(update)) {
+    changedBefore[key] = before
+      ? (before as Record<string, unknown>)[key]
+      : undefined;
+    changedAfter[key] =
+      update[key] instanceof Date
+        ? (update[key] as Date).toISOString()
+        : update[key];
+  }
+
   const actor = await getActor(req);
   const isScoreUpdate = "score" in update && "completed" in update;
   logAction({
@@ -50,8 +70,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     entityId: id,
     description: isScoreUpdate
       ? `Recorded score: ${JSON.stringify(update.score)}`
-      : `Updated match fields: ${Object.keys(update).join(", ")}`,
-    metadata: isScoreUpdate ? { score: update.score } : undefined,
+      : `Updated match: ${Object.keys(update).join(", ")}`,
+    metadata: { before: changedBefore, after: changedAfter },
     req,
   });
 
@@ -62,7 +82,14 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.DELETE_MATCH]);
   if (authError) return authError;
   const { id } = await params;
+
+  const [before] = await db
+    .select({ status: match.status })
+    .from(match)
+    .where(eq(match.id, id))
+    .limit(1);
   await db.update(match).set({ status: "CANCELLED" }).where(eq(match.id, id));
+
   const actor = await getActor(req);
   logAction({
     actorId: actor?.id,
@@ -72,8 +99,8 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     entityId: id,
     description: "Cancelled match",
     metadata: {
-      before: { status: "active" },
-      after: { status: "cancelled" },
+      before: { status: before?.status },
+      after: { status: "CANCELLED" },
     },
     req,
   });

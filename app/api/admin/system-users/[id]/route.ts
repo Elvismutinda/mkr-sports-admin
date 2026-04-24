@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   if (authError) return authError;
   try {
     const { id } = await params;
-    const [user] = await db
+    const [found] = await db
       .select({
         id: systemUser.id,
         name: systemUser.name,
@@ -37,9 +37,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .leftJoin(systemRole, eq(systemUser.roleId, systemRole.id))
       .where(eq(systemUser.id, id))
       .limit(1);
-    if (!user)
+    if (!found)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
-    return NextResponse.json(user);
+    return NextResponse.json(found);
   } catch (error) {
     console.error("[GET /api/admin/system-users/:id]", error);
     return NextResponse.json(
@@ -63,12 +63,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       roleId?: string | null;
       status?: "active" | "inactive" | "suspended";
     };
+
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (token?.id === id && status === "suspended")
       return NextResponse.json(
         { error: "You cannot suspend your own account." },
         { status: 400 },
       );
+
     const [existing] = await db
       .select({
         id: systemUser.id,
@@ -80,29 +82,25 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .from(systemUser)
       .where(eq(systemUser.id, id))
       .limit(1);
-
     if (!existing)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    await db
-      .update(systemUser)
-      .set({
-        ...(name ? { name: name.trim() } : {}),
-        ...(phone !== undefined ? { phone: phone?.trim() ?? null } : {}),
-        ...(roleId !== undefined ? { roleId: roleId ?? null } : {}),
-        ...(status ? { status } : {}),
-      })
-      .where(eq(systemUser.id, id));
+    const update: Record<string, unknown> = {};
+    if (name) update.name = name.trim();
+    if (phone !== undefined) update.phone = phone?.trim() ?? null;
+    if (roleId !== undefined) update.roleId = roleId ?? null;
+    if (status) update.status = status;
+
+    await db.update(systemUser).set(update).where(eq(systemUser.id, id));
+
+    const changedBefore: Record<string, unknown> = {};
+    const changedAfter: Record<string, unknown> = {};
+    for (const key of Object.keys(update)) {
+      changedBefore[key] = (existing as Record<string, unknown>)[key];
+      changedAfter[key] = update[key];
+    }
 
     const actor = await getActor(req);
-    const changes = [
-      name && "name",
-      phone !== undefined && "phone",
-      roleId !== undefined && "role",
-      status && `status→${status}`,
-    ]
-      .filter(Boolean)
-      .join(", ");
     logAction({
       actorId: actor?.id,
       actorType: "system_user",
@@ -110,26 +108,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         status === "suspended" ? "SUSPEND_SYSTEM_USER" : "UPDATE_SYSTEM_USER",
       entityType: "system_user",
       entityId: id,
-      description: `Updated admin user "${existing.name}" — ${changes}`,
-      metadata: {
-        // before — exactly what was in the DB
-        before: {
-          name: existing.name,
-          phone: existing.phone,
-          roleId: existing.roleId,
-          status: existing.status,
-        },
-        // after — apply only the fields that were actually sent in the request body
-        after: {
-          name: name?.trim() ?? existing.name,
-          phone: phone !== undefined ? (phone?.trim() ?? null) : existing.phone,
-          roleId: roleId !== undefined ? (roleId ?? null) : existing.roleId,
-          status: status ?? existing.status,
-        },
-      },
+      description: `Updated admin user "${existing.name}": ${Object.keys(update).join(", ")}`,
+      metadata: { before: changedBefore, after: changedAfter },
       req,
     });
-
     return NextResponse.json({ message: "User updated." });
   } catch (error) {
     console.error("[PATCH /api/admin/system-users/:id]", error);
@@ -154,7 +136,11 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         { status: 400 },
       );
     const [existing] = await db
-      .select({ name: systemUser.name, email: systemUser.email })
+      .select({
+        name: systemUser.name,
+        email: systemUser.email,
+        status: systemUser.status,
+      })
       .from(systemUser)
       .where(eq(systemUser.id, id))
       .limit(1);
@@ -171,7 +157,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       entityId: id,
       description: `Suspended admin user "${existing?.name}" (${existing?.email})`,
       metadata: {
-        before: { status: "active" },
+        before: { status: existing?.status },
         after: { status: "suspended" },
       },
       req,

@@ -14,10 +14,8 @@ interface RouteParams {
 export async function GET(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.VIEW_USER]);
   if (authError) return authError;
-
   try {
     const { id } = await params;
-
     const [found] = await db
       .select({
         id: user.id,
@@ -40,12 +38,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .from(user)
       .where(eq(user.id, id))
       .limit(1);
-
-    if (!found) {
+    if (!found)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(found, { status: 200 });
+    return NextResponse.json(found);
   } catch (error) {
     console.error("[GET /api/admin/users/:id]", error);
     return NextResponse.json(
@@ -58,7 +53,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.UPDATE_USER]);
   if (authError) return authError;
-
   try {
     const { id } = await params;
     const body = (await req.json()) as {
@@ -67,48 +61,43 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       position?: "Goalkeeper" | "Defender" | "Midfielder" | "Forward";
       bio?: string;
       isActive?: boolean;
-      stats?: {
-        matchesPlayed: number;
-        goals: number;
-        assists: number;
-        motm: number;
-        rating: number;
-        wins: number;
-        losses: number;
-        draws: number;
-      };
-      attributes?: {
-        pace: number;
-        shooting: number;
-        passing: number;
-        dribbling: number;
-        defense: number;
-        physical: number;
-        stamina: number;
-        workRate: number;
-      };
+      stats?: Record<string, unknown>;
+      attributes?: Record<string, unknown>;
     };
 
     const [existing] = await db
-      .select({ id: user.id })
+      .select({
+        name: user.name,
+        phone: user.phone,
+        position: user.position,
+        bio: user.bio,
+        isActive: user.isActive,
+        stats: user.stats,
+        attributes: user.attributes,
+      })
       .from(user)
       .where(eq(user.id, id))
       .limit(1);
-
-    if (!existing) {
+    if (!existing)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const update: Record<string, unknown> = {};
+    if (body.name !== undefined) update.name = body.name.trim();
+    if (body.phone !== undefined) update.phone = body.phone?.trim() ?? null;
+    if (body.position !== undefined) update.position = body.position;
+    if (body.bio !== undefined) update.bio = body.bio?.trim() ?? null;
+    if (body.isActive !== undefined) update.isActive = body.isActive;
+    if (body.stats !== undefined) update.stats = body.stats;
+    if (body.attributes !== undefined) update.attributes = body.attributes;
+
+    await db.update(user).set(update).where(eq(user.id, id));
+
+    const changedBefore: Record<string, unknown> = {};
+    const changedAfter: Record<string, unknown> = {};
+    for (const key of Object.keys(update)) {
+      changedBefore[key] = (existing as Record<string, unknown>)[key];
+      changedAfter[key] = update[key];
     }
-
-    const updateData: Record<string, unknown> = {};
-    if (body.name !== undefined) updateData.name = body.name.trim();
-    if (body.phone !== undefined) updateData.phone = body.phone?.trim() ?? null;
-    if (body.position !== undefined) updateData.position = body.position;
-    if (body.bio !== undefined) updateData.bio = body.bio?.trim() ?? null;
-    if (body.isActive !== undefined) updateData.isActive = body.isActive;
-    if (body.stats !== undefined) updateData.stats = body.stats;
-    if (body.attributes !== undefined) updateData.attributes = body.attributes;
-
-    await db.update(user).set(updateData).where(eq(user.id, id));
 
     const actor = await getActor(req);
     logAction({
@@ -117,11 +106,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       action: "UPDATE_USER",
       entityType: "user",
       entityId: id,
-      description: `Updated user fields: ${Object.keys(updateData).join(", ")}`,
+      description: `Updated user "${existing.name}": ${Object.keys(update).join(", ")}`,
+      metadata: { before: changedBefore, after: changedAfter },
       req,
     });
-
-    return NextResponse.json({ message: "User updated." }, { status: 200 });
+    return NextResponse.json({ message: "User updated." });
   } catch (error) {
     console.error("[PATCH /api/admin/users/:id]", error);
     return NextResponse.json(
@@ -134,13 +123,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.DELETE_USER]);
   if (authError) return authError;
-
   try {
     const { id } = await params;
-
-    // Soft delete
+    const [existing] = await db
+      .select({ name: user.name, email: user.email, isActive: user.isActive })
+      .from(user)
+      .where(eq(user.id, id))
+      .limit(1);
     await db.update(user).set({ isActive: false }).where(eq(user.id, id));
-
     const actor = await getActor(req);
     logAction({
       actorId: actor?.id,
@@ -148,15 +138,14 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       action: "DEACTIVATE_USER",
       entityType: "user",
       entityId: id,
-      description: "Deactivated user (soft delete)",
+      description: `Deactivated user "${existing?.name}" (${existing?.email})`,
       metadata: {
-        before: { status: "active" },
-        after: { status: "suspended" },
+        before: { isActive: existing?.isActive ?? true },
+        after: { isActive: false },
       },
       req,
     });
-
-    return NextResponse.json({ message: "User deactivated." }, { status: 200 });
+    return NextResponse.json({ message: "User deactivated." });
   } catch (error) {
     console.error("[DELETE /api/admin/users/:id]", error);
     return NextResponse.json(

@@ -259,7 +259,7 @@ export default function UserManagement() {
             <Alert
               showIcon
               type="info"
-              message="A temporary password will be generated. The user will receive an email to set their own password."
+              title="A temporary password will be generated. The user will receive an email to set their own password."
             />
           )}
         </Form>

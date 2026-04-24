@@ -16,10 +16,37 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     Permission.UPDATE_TOURNAMENT,
   ]);
   if (authError) return authError;
-
   const { id } = await params;
   const body = await req.json();
-  const update: Record<string, unknown> = {};
+
+  const [existing] = await db
+    .select({
+      name: tournament.name,
+      description: tournament.description,
+      location: tournament.location,
+      turfId: tournament.turfId,
+      prizePool: tournament.prizePool,
+      entryFee: tournament.entryFee,
+      maxTeams: tournament.maxTeams,
+      maxPlayersPerTeam: tournament.maxPlayersPerTeam,
+      format: tournament.format,
+      status: tournament.status,
+      startsAt: tournament.startsAt,
+      endsAt: tournament.endsAt,
+      registrationDeadline: tournament.registrationDeadline,
+      rules: tournament.rules,
+      isPublic: tournament.isPublic,
+    })
+    .from(tournament)
+    .where(eq(tournament.id, id))
+    .limit(1);
+
+  if (!existing)
+    return NextResponse.json(
+      { error: "Tournament not found" },
+      { status: 404 },
+    );
+
   const allowed = [
     "name",
     "description",
@@ -37,15 +64,27 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     "rules",
     "isPublic",
   ] as const;
+  const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (!(key in body)) continue;
-    if (["startsAt", "endsAt", "registrationDeadline"].includes(key)) {
-      update[key] = body[key] ? new Date(body[key]) : null;
-    } else {
-      update[key] = body[key];
-    }
+    update[key] = ["startsAt", "endsAt", "registrationDeadline"].includes(key)
+      ? body[key]
+        ? new Date(body[key])
+        : null
+      : body[key];
   }
   await db.update(tournament).set(update).where(eq(tournament.id, id));
+
+  const changedBefore: Record<string, unknown> = {};
+  const changedAfter: Record<string, unknown> = {};
+  for (const key of Object.keys(update)) {
+    const prev = (existing as Record<string, unknown>)[key];
+    changedBefore[key] = prev instanceof Date ? prev.toISOString() : prev;
+    changedAfter[key] =
+      update[key] instanceof Date
+        ? (update[key] as Date).toISOString()
+        : update[key];
+  }
 
   const actor = await getActor(req);
   logAction({
@@ -54,10 +93,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     action: "UPDATE_TOURNAMENT",
     entityType: "tournament",
     entityId: id,
-    description: `Updated tournament fields: ${Object.keys(update).join(", ")}`,
+    description: `Updated tournament "${existing.name}": ${Object.keys(update).join(", ")}`,
+    metadata: { before: changedBefore, after: changedAfter },
     req,
   });
-
   return NextResponse.json({ message: "Tournament updated." });
 }
 
@@ -67,12 +106,15 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   ]);
   if (authError) return authError;
   const { id } = await params;
-  // Soft cancel rather than delete
+  const [existing] = await db
+    .select({ name: tournament.name, status: tournament.status })
+    .from(tournament)
+    .where(eq(tournament.id, id))
+    .limit(1);
   await db
     .update(tournament)
     .set({ status: "COMPLETED" })
     .where(eq(tournament.id, id));
-
   const actor = await getActor(req);
   logAction({
     actorId: actor?.id,
@@ -80,10 +122,10 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     action: "CANCEL_TOURNAMENT",
     entityType: "tournament",
     entityId: id,
-    description: "Cancelled tournament (set to COMPLETED)",
+    description: `Cancelled tournament "${existing?.name}"`,
     metadata: {
-      before: { status: "active" },
-      after: { status: "cancelled" },
+      before: { status: existing?.status },
+      after: { status: "COMPLETED" },
     },
     req,
   });

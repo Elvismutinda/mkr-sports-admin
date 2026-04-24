@@ -15,7 +15,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.VIEW_TEAM]);
   if (authError) return authError;
   const { id } = await params;
-
   const [found] = await db
     .select({
       id: team.id,
@@ -35,10 +34,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     .leftJoin(user, eq(team.captainId, user.id))
     .where(eq(team.id, id))
     .limit(1);
-
   if (!found)
     return NextResponse.json({ error: "Team not found" }, { status: 404 });
-
   const members = await db
     .select({
       id: user.id,
@@ -50,7 +47,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     .from(teamMember)
     .innerJoin(user, eq(teamMember.playerId, user.id))
     .where(and(eq(teamMember.teamId, id), eq(teamMember.isActive, true)));
-
   return NextResponse.json({ ...found, members });
 }
 
@@ -59,6 +55,24 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   if (authError) return authError;
   const { id } = await params;
   const body = await req.json();
+
+  const [existing] = await db
+    .select({
+      name: team.name,
+      type: team.type,
+      bio: team.bio,
+      badgeFallback: team.badgeFallback,
+      captainId: team.captainId,
+      isActive: team.isActive,
+      stats: team.stats,
+    })
+    .from(team)
+    .where(eq(team.id, id))
+    .limit(1);
+
+  if (!existing)
+    return NextResponse.json({ error: "Team not found" }, { status: 404 });
+
   const allowed = [
     "name",
     "type",
@@ -74,6 +88,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
   await db.update(team).set(update).where(eq(team.id, id));
 
+  const changedBefore: Record<string, unknown> = {};
+  const changedAfter: Record<string, unknown> = {};
+  for (const key of Object.keys(update)) {
+    changedBefore[key] = (existing as Record<string, unknown>)[key];
+    changedAfter[key] = update[key];
+  }
+
   const actor = await getActor(req);
   logAction({
     actorId: actor?.id,
@@ -81,10 +102,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     action: "UPDATE_TEAM",
     entityType: "team",
     entityId: id,
-    description: `Updated team fields: ${Object.keys(update).join(", ")}`,
+    description: `Updated team "${existing.name}": ${Object.keys(update).join(", ")}`,
+    metadata: { before: changedBefore, after: changedAfter },
     req,
   });
-
   return NextResponse.json({ message: "Team updated." });
 }
 
@@ -92,8 +113,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.DELETE_TEAM]);
   if (authError) return authError;
   const { id } = await params;
+  const [existing] = await db
+    .select({ name: team.name, isActive: team.isActive })
+    .from(team)
+    .where(eq(team.id, id))
+    .limit(1);
   await db.update(team).set({ isActive: false }).where(eq(team.id, id));
-
   const actor = await getActor(req);
   logAction({
     actorId: actor?.id,
@@ -101,13 +126,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     action: "DEACTIVATE_TEAM",
     entityType: "team",
     entityId: id,
-    description: "Deactivated team",
+    description: `Deactivated team "${existing?.name}"`,
     metadata: {
-      before: { status: "active" },
-      after: { status: "suspended" },
+      before: { isActive: existing?.isActive ?? true },
+      after: { isActive: false },
     },
     req,
   });
-
   return NextResponse.json({ message: "Team deactivated." });
 }

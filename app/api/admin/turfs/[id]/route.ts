@@ -14,7 +14,6 @@ interface RouteParams {
 export async function GET(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.VIEW_TURF]);
   if (authError) return authError;
-
   const { id } = await params;
   const [found] = await db
     .select({
@@ -42,7 +41,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     .leftJoin(user, eq(turf.agentId, user.id))
     .where(eq(turf.id, id))
     .limit(1);
-
   if (!found)
     return NextResponse.json({ error: "Turf not found" }, { status: 404 });
   return NextResponse.json(found);
@@ -51,10 +49,32 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.UPDATE_TURF]);
   if (authError) return authError;
-
   try {
     const { id } = await params;
     const body = await req.json();
+
+    const [existing] = await db
+      .select({
+        name: turf.name,
+        city: turf.city,
+        area: turf.area,
+        address: turf.address,
+        surface: turf.surface,
+        amenities: turf.amenities,
+        pricePerHour: turf.pricePerHour,
+        capacity: turf.capacity,
+        agentId: turf.agentId,
+        isActive: turf.isActive,
+        latitude: turf.latitude,
+        longitude: turf.longitude,
+      })
+      .from(turf)
+      .where(eq(turf.id, id))
+      .limit(1);
+
+    if (!existing)
+      return NextResponse.json({ error: "Turf not found" }, { status: 404 });
+
     const allowed = [
       "name",
       "city",
@@ -73,7 +93,16 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     for (const key of allowed) {
       if (key in body) update[key] = body[key];
     }
+
     await db.update(turf).set(update).where(eq(turf.id, id));
+
+    // Build diff only for changed fields
+    const changedBefore: Record<string, unknown> = {};
+    const changedAfter: Record<string, unknown> = {};
+    for (const key of Object.keys(update)) {
+      changedBefore[key] = (existing as Record<string, unknown>)[key];
+      changedAfter[key] = update[key];
+    }
 
     const actor = await getActor(req);
     logAction({
@@ -82,10 +111,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       action: "UPDATE_TURF",
       entityType: "turf",
       entityId: id,
-      description: `Updated turf fields: ${Object.keys(update).join(", ")}`,
+      description: `Updated turf "${existing.name}": ${Object.keys(update).join(", ")}`,
+      metadata: { before: changedBefore, after: changedAfter },
       req,
     });
-
     return NextResponse.json({ message: "Turf updated." });
   } catch (error) {
     console.error("[PATCH /api/admin/turfs/:id]", error);
@@ -100,8 +129,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
   const authError = await requireAnyPermission(req, [Permission.DELETE_TURF]);
   if (authError) return authError;
   const { id } = await params;
+  const [existing] = await db
+    .select({ name: turf.name, isActive: turf.isActive })
+    .from(turf)
+    .where(eq(turf.id, id))
+    .limit(1);
   await db.update(turf).set({ isActive: false }).where(eq(turf.id, id));
-
   const actor = await getActor(req);
   logAction({
     actorId: actor?.id,
@@ -109,13 +142,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     action: "DEACTIVATE_TURF",
     entityType: "turf",
     entityId: id,
-    description: "Deactivated turf",
+    description: `Deactivated turf "${existing?.name}"`,
     metadata: {
-      before: { status: "active" },
-      after: { status: "suspended" },
+      before: { isActive: existing?.isActive ?? true },
+      after: { isActive: false },
     },
     req,
   });
-
   return NextResponse.json({ message: "Turf deactivated." });
 }
