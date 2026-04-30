@@ -112,7 +112,7 @@ export default function PlayerReport() {
               placeholder="All roles"
               options={[
                 { label: "Players", value: "player" },
-                { label: "Agents (Turf Owners)", value: "agent" },
+                { label: "Partners", value: "partner" },
               ]}
             />
           </Form.Item>

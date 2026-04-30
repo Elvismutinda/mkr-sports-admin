@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q")?.trim() ?? "";
-    const role = searchParams.get("role"); // "player" | "agent"
+    const role = searchParams.get("role"); // "player"
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(
       100,
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         or(ilike(user.name, `%${q}%`), ilike(user.email, `%${q}%`)),
       );
     }
-    if (role === "player" || role === "agent") {
+    if (role === "player") {
       conditions.push(eq(user.role, role));
     }
     if (isActiveParam !== null) {
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       email: string;
       phone?: string;
       position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward";
-      role?: "player" | "agent";
+      role?: "player";
     };
 
     const { name, email, phone, position, role = "player" } = body;
@@ -165,26 +165,6 @@ export async function POST(req: NextRequest) {
         position: user.position,
         createdAt: user.createdAt,
       });
-
-    // If agent, send welcome/invite email
-    if (role === "agent") {
-      const { randomBytes } = await import("crypto");
-      const { passwordResetToken } = await import("@/lib/db/schema");
-      const { sendAgentInviteEmail } = await import("@/lib/mail");
-
-      const token = randomBytes(32).toString("hex");
-      const expires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
-
-      await db.insert(passwordResetToken).values({
-        email: created.email,
-        token,
-        expires,
-      });
-
-      await sendAgentInviteEmail(created.email, created.name, token).catch(
-        (err) => console.error("[mail] agent invite failed:", err),
-      );
-    }
 
     const actor = await getActor(req);
     logAction({

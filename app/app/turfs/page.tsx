@@ -127,9 +127,9 @@ export default function TurfsPage() {
       render: (v) => (v ? `KES ${v}` : "—"),
     },
     {
-      title: "Agent",
-      dataIndex: "agentName",
-      key: "agent",
+      title: "Partner",
+      dataIndex: "partnerName",
+      key: "partner",
       render: (v) => v ?? "—",
     },
     {

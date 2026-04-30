@@ -659,7 +659,7 @@ export default function SystemLogsPage() {
             style={{ width: 160 }}
             options={[
               { label: "Admin User", value: "system_user" },
-              { label: "Player / Agent", value: "user" },
+              { label: "Player", value: "user" },
             ]}
           />
           <Select

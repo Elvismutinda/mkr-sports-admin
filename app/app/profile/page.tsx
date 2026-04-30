@@ -23,8 +23,6 @@ import { authActions } from "@/store/slices/auth";
 import useSWR from "swr";
 import { fetcher } from "@/services/_fetcher";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface ProfileData {
   id: string;
   name: string;
@@ -48,8 +46,6 @@ interface PasswordFormValues {
   newPassword: string;
   confirmPassword: string;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const dispatch = useAppDispatch();

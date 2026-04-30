@@ -33,7 +33,7 @@ export const createTurf = async (payload: {
   amenities?: string[];
   pricePerHour?: string;
   capacity?: number;
-  agentId?: string;
+  partnerId?: string;
 }): Promise<{ message: string }> => {
   const res = await fetch("/api/admin/turfs", {
     method: "POST",

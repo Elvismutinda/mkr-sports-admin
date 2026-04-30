@@ -2,6 +2,7 @@ import { db } from "@/lib/db/db";
 import {
   user, turf, team, match, tournament,
   payment, systemLog,
+  partner,
 } from "@/lib/db/schema";
 import { eq, count, sum, sql, gte, desc, and } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -25,48 +26,48 @@ export async function GET(req: NextRequest) {
 
   try {
     const [
-      // ── Totals ──────────────────────────────────────────────────────────
+      // Totals
       [{ totalPlayers }],
-      [{ totalAgents }],
+      [{ totalPartners }],
       [{ totalTurfs }],
       [{ totalTeams }],
       [{ totalMatches }],
       [{ totalTournaments }],
 
-      // ── This month ──────────────────────────────────────────────────────
+      // This month
       [{ newPlayersThisMonth }],
       [{ newPlayersLastMonth }],
 
-      // ── Payments ────────────────────────────────────────────────────────
+      // Payments
       [{ totalRevenue, revenueThisMonth, revenueLastMonth, pendingPayments, failedPayments }],
 
-      // ── Match stats ─────────────────────────────────────────────────────
+      // Match stats
       [{ upcomingMatches }],
       [{ liveMatches }],
       [{ completedMatchesThisMonth }],
 
-      // ── Tournament stats ─────────────────────────────────────────────────
+      // Tournament stats
       [{ upcomingTournaments }],
       [{ ongoingTournaments }],
 
-      // ── Registrations trend (last 30 days, daily) ─────────────────────
+      // Registrations trend (last 30 days, daily)
       registrationTrend,
 
-      // ── Revenue trend (last 30 days, daily) ──────────────────────────
+      // Revenue trend (last 30 days, daily)
       revenueTrend,
 
-      // ── Top turfs by match count ──────────────────────────────────────
+      // Top turfs by match count
       topTurfs,
 
-      // ── Recent system activity ────────────────────────────────────────
+      // Recent system activity
       recentLogs,
 
-      // ── Match mode distribution ───────────────────────────────────────
+      // Match mode distribution
       matchModeDistribution,
     ] = await Promise.all([
       // Totals
       db.select({ totalPlayers: count() }).from(user).where(eq(user.role, "player")),
-      db.select({ totalAgents: count() }).from(user).where(eq(user.role, "agent")),
+      db.select({ totalPartners: count() }).from(partner).where(eq(partner.role, "turf_manager")),
       db.select({ totalTurfs: count() }).from(turf).where(eq(turf.isActive, true)),
       db.select({ totalTeams: count() }).from(team).where(eq(team.isActive, true)),
       db.select({ totalMatches: count() }).from(match),
@@ -168,7 +169,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       totals: {
         players: totalPlayers,
-        agents: totalAgents,
+        partners: totalPartners,
         turfs: totalTurfs,
         teams: totalTeams,
         matches: totalMatches,

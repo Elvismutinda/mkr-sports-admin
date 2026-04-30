@@ -3,71 +3,71 @@
  * Keys match what is seeded into the `permissions` table.
  */
 export enum Permission {
-  // ── User / Player management ──────────────────
+  // User / Player management
   CREATE_USER = "CREATE_USER",
   VIEW_USER = "VIEW_USER",
   UPDATE_USER = "UPDATE_USER",
   DELETE_USER = "DELETE_USER",
 
-  // ── Role management ───────────────────────────
+  // Role management
   CREATE_ROLE = "CREATE_ROLE",
   VIEW_ROLE = "VIEW_ROLE",
   UPDATE_ROLE = "UPDATE_ROLE",
   DELETE_ROLE = "DELETE_ROLE",
 
-  // ── System user (admin panel operator) ────────
+  // System user (admin panel operator)
   CREATE_SYSTEM_USER = "CREATE_SYSTEM_USER",
   VIEW_SYSTEM_USER = "VIEW_SYSTEM_USER",
   UPDATE_SYSTEM_USER = "UPDATE_SYSTEM_USER",
   DELETE_SYSTEM_USER = "DELETE_SYSTEM_USER",
 
-  // ── Turf management ───────────────────────────
+  // Turf management
   CREATE_TURF = "CREATE_TURF",
   VIEW_TURF = "VIEW_TURF",
   UPDATE_TURF = "UPDATE_TURF",
   DELETE_TURF = "DELETE_TURF",
 
-  // ── Team management ───────────────────────────
+  // Team management
   CREATE_TEAM = "CREATE_TEAM",
   VIEW_TEAM = "VIEW_TEAM",
   UPDATE_TEAM = "UPDATE_TEAM",
   DELETE_TEAM = "DELETE_TEAM",
 
-  // ── Tournament management ─────────────────────
+  // Tournament management
   CREATE_TOURNAMENT = "CREATE_TOURNAMENT",
   VIEW_TOURNAMENT = "VIEW_TOURNAMENT",
   UPDATE_TOURNAMENT = "UPDATE_TOURNAMENT",
   DELETE_TOURNAMENT = "DELETE_TOURNAMENT",
 
-  // ── Match / Fixture management ────────────────
+  // Match / Fixture management
   CREATE_MATCH = "CREATE_MATCH",
   VIEW_MATCH = "VIEW_MATCH",
   UPDATE_MATCH = "UPDATE_MATCH",
   DELETE_MATCH = "DELETE_MATCH",
 
-  // ── Payment management ────────────────────────
+  // Payment management
   VIEW_PAYMENT = "VIEW_PAYMENT",
   REFUND_PAYMENT = "REFUND_PAYMENT",
   EXPORT_PAYMENT = "EXPORT_PAYMENT",
 
-  // ── Challenge management ──────────────────────
+  // Challenge management
   VIEW_CHALLENGE = "VIEW_CHALLENGE",
   UPDATE_CHALLENGE = "UPDATE_CHALLENGE",
 
-  // ── Report management ─────────────────────────
+  // Report management
   CREATE_REPORT = "CREATE_REPORT",
   VIEW_REPORT = "VIEW_REPORT",
   UPDATE_REPORT = "UPDATE_REPORT",
 
-  // ── Dashboard ─────────────────────────────────
+  // Dashboard
   DASHBOARD_CLIENTS = "DASHBOARD_CLIENTS",
   DASHBOARD_TRANSACTIONS = "DASHBOARD_TRANSACTIONS",
   DASHBOARD_ANALYTICS = "DASHBOARD_ANALYTICS",
 
-  // ── System logs ───────────────────────────────
+  // System logs
   VIEW_SYSTEM_LOG = "VIEW_SYSTEM_LOG",
 
-  // ── Super admin ───────────────────────────────
+  // Super admin
   SUPER_ADMIN = "SUPER_ADMIN",
 }
 

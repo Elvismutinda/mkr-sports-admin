@@ -107,7 +107,7 @@ export default function DashClients() {
     <section className="flex flex-col gap-6">
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard label="Total Players" value={data?.totals.players ?? 0} icon={<UserOutlined />} accent="bg-blue-100 text-blue-600" growth={data?.players.growth} sub={`+${data?.players.thisMonth ?? 0} this month`} loading={isLoading} />
-        <StatCard label="Turf Owners" value={data?.totals.agents ?? 0} icon={<UserSwitchOutlined />} accent="bg-cyan-100 text-cyan-600" loading={isLoading} />
+        <StatCard label="Turf Managers" value={data?.totals.partners ?? 0} icon={<UserSwitchOutlined />} accent="bg-cyan-100 text-cyan-600" loading={isLoading} />
         <StatCard label="Active Turfs" value={data?.totals.turfs ?? 0} icon={<EnvironmentOutlined />} accent="bg-orange-100 text-orange-600" loading={isLoading} />
         <StatCard label="Teams" value={data?.totals.teams ?? 0} icon={<TeamOutlined />} accent="bg-indigo-100 text-indigo-600" loading={isLoading} />
         <StatCard label="Tournaments" value={data?.totals.tournaments ?? 0} icon={<TrophyOutlined />} accent="bg-purple-100 text-purple-600" sub={`${data?.tournaments.ongoing ?? 0} ongoing`} loading={isLoading} />

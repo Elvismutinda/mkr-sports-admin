@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
           createdAt: systemLog.createdAt,
         })
         .from(systemLog)
-        // Only left-join system users (player/agent actors won't have a match here)
+        // Only left-join system users (player actors won't have a match here)
         .leftJoin(
           systemUser,
           and(

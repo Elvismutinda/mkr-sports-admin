@@ -10,14 +10,14 @@ export async function GET(req: NextRequest) {
   if (authError) return authError;
 
   const { searchParams } = new URL(req.url);
-  const role = searchParams.get("role") ?? "player"; // "player" | "agent"
+  const role = searchParams.get("role") ?? "player"; // "player"
   const dateFrom = searchParams.get("dateFrom");
   const dateTo = searchParams.get("dateTo");
   const isActive = searchParams.get("isActive");
   const limit = Math.min(500, parseInt(searchParams.get("limit") ?? "100", 10));
 
   const conditions = [];
-  if (role === "player" || role === "agent")
+  if (role === "player")
     conditions.push(eq(user.role, role));
   if (isActive === "true") conditions.push(eq(user.isActive, true));
   if (isActive === "false") conditions.push(eq(user.isActive, false));

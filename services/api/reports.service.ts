@@ -3,7 +3,7 @@ export type ReportFormat = "table" | "csv";
 // Player Report
 
 export interface PlayerReportParams {
-  role?: "player" | "agent";
+  role?: "player";
   isActive?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -175,7 +175,7 @@ export interface TurfReportRow {
   rating: string;
   totalReviews: number;
   isActive: boolean;
-  agentName: string | null;
+  partnerName: string | null;
   matchCount: number;
   completedMatchCount: number;
 }

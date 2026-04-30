@@ -74,9 +74,9 @@ export default function TurfReport() {
       render: (v) => `⭐ ${Number(v).toFixed(1)}`,
     },
     {
-      title: "Agent",
-      dataIndex: "agentName",
-      key: "agent",
+      title: "Partner",
+      dataIndex: "partnerName",
+      key: "partner",
       render: (v) => v ?? "—",
     },
     { title: "Matches", dataIndex: "matchCount", key: "matches" },
@@ -94,7 +94,7 @@ export default function TurfReport() {
   return (
     <ReportCard
       title="Turf Utilisation Report"
-      description="Turf activity, capacity and agent performance"
+      description="Turf activity, capacity and partner performance"
       icon="🏟️"
       color="bg-orange-50/60"
     >

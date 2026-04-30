@@ -33,8 +33,6 @@ export const useUser = (id: string | null) => {
   return { data, error, isLoading, mutate };
 };
 
-// Mutations
-
 export const createUser = async (payload: {
   name: string;
   email: string;

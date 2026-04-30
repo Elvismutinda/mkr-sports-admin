@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/db";
-import { turf, user } from "@/lib/db/schema";
+import { partner, turf, user } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyPermission } from "@/lib/auth/requirePermission";
@@ -30,15 +30,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       rating: turf.rating,
       totalReviews: turf.totalReviews,
       capacity: turf.capacity,
-      agentId: turf.agentId,
-      agentName: user.name,
+      partnerId: turf.partnerId,
+      partnerName: partner.name,
       isActive: turf.isActive,
       images: turf.images,
       createdAt: turf.createdAt,
       updatedAt: turf.updatedAt,
     })
     .from(turf)
-    .leftJoin(user, eq(turf.agentId, user.id))
+    .leftJoin(user, eq(turf.partnerId, user.id))
     .where(eq(turf.id, id))
     .limit(1);
   if (!found)
@@ -63,7 +63,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         amenities: turf.amenities,
         pricePerHour: turf.pricePerHour,
         capacity: turf.capacity,
-        agentId: turf.agentId,
+        partnerId: turf.partnerId,
         isActive: turf.isActive,
         latitude: turf.latitude,
         longitude: turf.longitude,
@@ -84,7 +84,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       "amenities",
       "pricePerHour",
       "capacity",
-      "agentId",
+      "partnerId",
       "isActive",
       "latitude",
       "longitude",

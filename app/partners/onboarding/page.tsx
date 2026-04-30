@@ -5,7 +5,7 @@ import type { TabsProps } from "antd";
 import { UserSwitchOutlined } from "@ant-design/icons";
 import TurfManagement from "./(views)/TurfManagement";
 
-export default function AgentsPage() {
+export default function PartnersPage() {
   const items: TabsProps["items"] = [
     {
       key: "1",

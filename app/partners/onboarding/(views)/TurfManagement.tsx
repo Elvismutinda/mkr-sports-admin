@@ -282,7 +282,6 @@ export default function TurfManagement() {
         />
       </div>
 
-      {/* Create modal */}
       <Modal
         title="Add Turf Manager"
         open={createOpen}
@@ -312,7 +311,6 @@ export default function TurfManagement() {
         </p>
       </Modal>
 
-      {/* Edit modal */}
       <Modal
         title="Edit Turf Manager"
         open={!!editTarget}

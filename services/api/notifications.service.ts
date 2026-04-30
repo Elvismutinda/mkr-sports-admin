@@ -29,8 +29,6 @@ export const useModuleCounts = () => {
   return { data, error, isLoading, mutate };
 };
 
-// ─── Mutations ────────────────────────────────────────────────────────────────
-
 export const markNotificationRead = async (id: string): Promise<void> => {
   await fetch(`/api/admin/notifications/${id}/read`, { method: "PATCH" });
 };

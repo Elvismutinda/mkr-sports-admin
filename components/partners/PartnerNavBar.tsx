@@ -96,12 +96,10 @@ export default function PartnerNavBar({ toggleMenu }: Props) {
           />
         )}
 
-        {/* Notifications */}
         <Badge count={0} overflowCount={99} size="small">
           <BellOutlined className="text-xl text-gray-400 hover:text-primary cursor-pointer transition-colors" />
         </Badge>
 
-        {/* Avatar / dropdown */}
         <Dropdown
           menu={{ items: dropdownItems }}
           placement="bottomRight"

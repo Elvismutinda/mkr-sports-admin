@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/db";
-import { turf, user } from "@/lib/db/schema";
+import { partner, turf, user } from "@/lib/db/schema";
 import { eq, ilike, or, count, desc } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyPermission } from "@/lib/auth/requirePermission";
@@ -45,15 +45,15 @@ export async function GET(req: NextRequest) {
           rating: turf.rating,
           totalReviews: turf.totalReviews,
           capacity: turf.capacity,
-          agentId: turf.agentId,
-          agentName: user.name,
+          partnerId: turf.partnerId,
+          partnerName: partner.name,
           isActive: turf.isActive,
           images: turf.images,
           createdAt: turf.createdAt,
           updatedAt: turf.updatedAt,
         })
         .from(turf)
-        .leftJoin(user, eq(turf.agentId, user.id))
+        .leftJoin(user, eq(turf.partnerId, user.id))
         .where(whereClause)
         .orderBy(desc(turf.createdAt))
         .limit(limit)
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
       amenities?: string[];
       pricePerHour?: string;
       capacity?: number;
-      agentId?: string;
+      partnerId?: string;
     };
     if (!body.name?.trim() || !body.city?.trim())
       return NextResponse.json(
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         amenities: body.amenities ?? [],
         pricePerHour: body.pricePerHour ?? null,
         capacity: body.capacity ?? null,
-        agentId: body.agentId ?? null,
+        partnerId: body.partnerId ?? null,
         isActive: true,
       })
       .returning({ id: turf.id, name: turf.name, createdAt: turf.createdAt });

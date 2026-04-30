@@ -9,7 +9,7 @@ import type {
   NotificationType,
 } from "@/lib/db/schema";
 
-// ─── Re-export schema types ───────────────────────────────────────────────────
+// Re-export schema types
 export type {
   Position,
   UserRole,
@@ -21,7 +21,7 @@ export type {
   NotificationType,
 };
 
-// ─── Pagination ───────────────────────────────────────────────────────────────
+// Pagination
 export interface PaginationMeta {
   total: number;
   page: number;
@@ -34,7 +34,7 @@ export interface PaginatedResponse<T> {
   pagination: PaginationMeta;
 }
 
-// ─── Permissions / Roles ──────────────────────────────────────────────────────
+// Permissions / Roles
 export interface PermissionRow {
   id: string;
   key: string;
@@ -70,7 +70,7 @@ export interface SystemUserRow {
   updatedAt: string;
 }
 
-// ─── Players / Agents ─────────────────────────────────────────────────────────
+// Players
 export interface UserStats {
   matchesPlayed: number;
   goals: number;
@@ -114,7 +114,7 @@ export interface AdminUserRow {
 
 export type PaginatedUsers = PaginatedResponse<AdminUserRow>;
 
-// ─── Turfs ────────────────────────────────────────────────────────────────────
+// Turfs
 export interface AdminTurfRow {
   id: string;
   name: string;
@@ -129,8 +129,8 @@ export interface AdminTurfRow {
   rating: string;
   totalReviews: number;
   capacity: number | null;
-  agentId: string | null;
-  agentName: string | null;
+  partnerId: string | null;
+  partnerName: string | null;
   isActive: boolean;
   images: string[];
   createdAt: string;
@@ -139,7 +139,7 @@ export interface AdminTurfRow {
 
 export type PaginatedTurfs = PaginatedResponse<AdminTurfRow>;
 
-// ─── Teams ────────────────────────────────────────────────────────────────────
+// Teams
 export interface TeamStats {
   matchesPlayed: number;
   wins: number;
@@ -169,7 +169,7 @@ export interface AdminTeamRow {
 
 export type PaginatedTeams = PaginatedResponse<AdminTeamRow>;
 
-// ─── Tournaments ──────────────────────────────────────────────────────────────
+// Tournaments
 export interface AdminTournamentRow {
   id: string;
   name: string;
@@ -195,7 +195,7 @@ export interface AdminTournamentRow {
 
 export type PaginatedTournaments = PaginatedResponse<AdminTournamentRow>;
 
-// ─── Matches ──────────────────────────────────────────────────────────────────
+// Matches
 export interface AdminMatchRow {
   id: string;
   date: string;
@@ -305,7 +305,7 @@ export interface SystemLogsResponse {
 export interface DashboardData {
   totals: {
     players: number;
-    agents: number;
+    partners: number;
     turfs: number;
     teams: number;
     matches: number;

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db/db";
-import { turf, match, user } from "@/lib/db/schema";
+import { turf, match, user, partner } from "@/lib/db/schema";
 import { eq, gte, lte, and, desc, count, sql, sum } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyPermission } from "@/lib/auth/requirePermission";
@@ -39,10 +39,10 @@ export async function GET(req: NextRequest) {
       rating: turf.rating,
       totalReviews: turf.totalReviews,
       isActive: turf.isActive,
-      agentName: user.name,
+      partnerName: partner.name,
     })
     .from(turf)
-    .leftJoin(user, eq(turf.agentId, user.id))
+    .leftJoin(user, eq(turf.partnerId, user.id))
     .where(turfWhere)
     .orderBy(desc(turf.createdAt));
 

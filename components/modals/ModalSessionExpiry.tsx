@@ -20,10 +20,9 @@ export default function ModalSessionExpiry() {
   const [remainingSecs, setRemainingSecs] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ Safely derive expires (fixes TS error)
   const expires = session?.expires;
 
-  // ✅ Memoize expiry timestamp (prevents recalculation every tick)
+  // Memoize expiry timestamp (prevents recalculation every tick)
   const expiryMs = useMemo(() => {
     if (!expires) return null;
     return new Date(expires).getTime();
@@ -54,7 +53,7 @@ export default function ModalSessionExpiry() {
       const secs = Math.ceil(msLeft / 1000);
       setRemainingSecs(secs);
 
-      // ✅ Only open once (prevents re-renders loop)
+      // Only open once (prevents re-renders loop)
       if (msLeft <= WARNING_BEFORE_EXPIRY_MS) {
         setIsOpen(true);
       }
@@ -78,7 +77,7 @@ export default function ModalSessionExpiry() {
     }
   };
 
-  // ✅ Don't render if not authenticated
+  // Don't render if not authenticated
   if (status !== "authenticated") return null;
 
   return (
