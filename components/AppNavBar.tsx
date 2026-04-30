@@ -136,7 +136,7 @@ export default function AppNavBar({ toggleMenu }: Props) {
                 className="hover:bg-primary transition-colors uppercase"
                 size="large"
                 shape="circle"
-                style={{ backgroundColor: "#2a79b5" }}
+                style={{ backgroundColor: "#2a79b5", fontWeight: 700 }}
               >
                 {initials}
               </Avatar>
@@ -146,7 +146,7 @@ export default function AppNavBar({ toggleMenu }: Props) {
                 size="large"
                 shape="circle"
                 icon={<UserOutlined />}
-                style={{ backgroundColor: "#2a79b5" }}
+                style={{ backgroundColor: "#2a79b5", fontWeight: 700}}
               />
             )}
           </span>

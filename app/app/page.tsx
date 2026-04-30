@@ -117,7 +117,7 @@ export default function Home() {
       description: "System activity logs",
       path: "/app/system-logs",
       color: "border-gray-300 hover:border-black hover:shadow-gray-200",
-      hasPermission: false, // System logs might not have specific permissions, defaulting to true
+      hasPermission: hasAnyPermission(PermissionGroups.SystemLog),
     },
     {
       id: "settings",
