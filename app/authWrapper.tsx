@@ -8,10 +8,14 @@ import { loadPermissionsFromArray } from "@/store/slices/permissionSlice";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
 const AUTH_PATH = "/auth";
-const DEFAULT_AFTER_LOGIN = "/app/dashboard";
+const DEFAULT_AFTER_LOGIN = "/app";
 
 function isAuthPage(pathname: string) {
   return pathname === AUTH_PATH || pathname.startsWith(AUTH_PATH + "/");
+}
+
+function isPartnerPage(pathname: string) {
+  return pathname === "/partners" || pathname.startsWith("/partners/");
 }
 
 export default function AuthWrapper({
@@ -25,7 +29,7 @@ export default function AuthWrapper({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // ── Sync next-auth session → Redux ──────────────────────
+  // Sync next-auth session → Redux 
   useEffect(() => {
     if (status === "loading") return;
 
@@ -52,7 +56,7 @@ export default function AuthWrapper({
     }
   }, [dispatch, status, user]);
 
-  // ── Redirect logic ───────────────────────────────────────
+  // Redirect logic
   useEffect(() => {
     if (status === "loading") return;
 
@@ -71,8 +75,8 @@ export default function AuthWrapper({
     }
   }, [pathname, router, searchParams, status]);
 
-  // Suppress flash of admin UI while session resolves
-  if (status === "loading" && !isAuthPage(pathname)) {
+
+  if (status === "loading" && !isAuthPage(pathname) && !isPartnerPage(pathname)) {
     return null;
   }
 

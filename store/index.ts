@@ -12,12 +12,14 @@ import { combineReducers } from "redux";
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "@/store/slices/auth";
 import permissionReducer from "@/store/slices/permissionSlice";
+import partnersAuthReducer from "@/store/slices/partnersAuth";
 import { persistReducer, persistStore } from "redux-persist";
 import type { PersistConfig } from "redux-persist";
 
 const rootReducer = combineReducers({
   auth: authReducer,
   permissions: permissionReducer,
+  partnersAuth: partnersAuthReducer,
 });
 
 // Derive RootState from the unpersisted reducer so TypeScript keeps

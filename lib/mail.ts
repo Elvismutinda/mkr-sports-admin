@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
 
 const FROM = `MKR Sports <${process.env.SMTP_USER}>`;
 const BASE_URL = process.env.NEXTAUTH_URL;
-const CLIENT_URL = process.env.NEXTCLIENT_URL;
+const PORTAL_URL = process.env.NEXTPORTAL_URL;
 
 function logoRow() {
   return `
@@ -72,34 +72,56 @@ function directUrl(href: string) {
     </p>`;
 }
 
-export async function sendAgentInviteEmail(
+const ROLE_LABELS: Record<string, string> = {
+  turf_manager: "Turf Manager",
+  // extend here as new partner roles are added
+};
+
+function roleLabel(role: string): string {
+  return (
+    ROLE_LABELS[role] ??
+    role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
+// Emails 
+
+/**
+ * Sent when an admin creates a new partner account.
+ * The link points to the Partner Portal password-setup page.
+ */
+export async function sendPartnerInviteEmail(
   email: string,
   name: string,
   token: string,
+  role: string = "turf_manager",
 ) {
-  const link = `${CLIENT_URL}/reset-password?token=${token}`;
- 
+  const link = `${PORTAL_URL}/setup-password?token=${token}`;
+  const label = roleLabel(role);
+
   await transporter.sendMail({
     from: FROM,
     to: email,
-    subject: "You're invited to MKR Sports as a Turf Owner",
+    subject: `You've been invited to MKR Sports as a ${label}`,
     html: wrapper(`
       <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;color:#ffea00;letter-spacing:0.2em;text-transform:uppercase">
-        TURF OWNER INVITE
+        PARTNER PORTAL INVITE
       </p>
       <p style="margin:0 0 16px 0;font-size:26px;font-weight:900;color:#ffffff;text-transform:uppercase;letter-spacing:-0.5px;line-height:1.1">
         WELCOME, ${name.toUpperCase()}
       </p>
+      <p style="margin:0 0 8px 0;font-size:14px;color:#8a9ab5;line-height:1.6">
+        You've been added to the MKR Sports Partner Portal as a <strong style="color:#ffffff">${label}</strong>.
+      </p>
       <p style="margin:0 0 32px 0;font-size:14px;color:#8a9ab5;line-height:1.6">
-        You've been added as a Turf Owner on MKR Sports. Set up your password below
-        to activate your account and start managing your turf listings.
+        Set up your password below to activate your account and access your partner dashboard.
       </p>
       ${primaryButton(link, "ACTIVATE MY ACCOUNT")}
       <p style="margin:0 0 28px 0;font-size:11px;font-weight:700;color:#ffea00;letter-spacing:0.15em;text-transform:uppercase;text-align:center">
         THIS LINK EXPIRES IN 48 HOURS
       </p>
       <p style="margin:0;font-size:12px;color:#4a5f7a;text-align:center">
-        If you did not expect this invitation, you can safely ignore it.
+        If you did not expect this invitation, you can safely ignore this email.
       </p>
       ${divider()}
       ${directUrl(link)}
@@ -107,6 +129,9 @@ export async function sendAgentInviteEmail(
   });
 }
 
+/**
+ * Sent when an admin creates a new system_user (admin panel operator) account.
+ */
 export async function sendAdminWelcomeEmail(
   email: string,
   name: string,
@@ -142,6 +167,9 @@ export async function sendAdminWelcomeEmail(
   });
 }
 
+/**
+ * Sent when an admin requests a password reset for their own account.
+ */
 export async function sendAdminPasswordResetEmail(
   email: string,
   name: string,

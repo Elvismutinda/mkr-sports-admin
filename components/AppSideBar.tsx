@@ -6,7 +6,6 @@ import type { MenuProps } from "antd";
 import {
   DashboardOutlined,
   UserOutlined,
-  UserSwitchOutlined,
   BarsOutlined,
   HistoryOutlined,
   SettingOutlined,
@@ -23,12 +22,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { MKRSportsLogo } from "./MKRSportsLogo";
 import { useModuleCounts } from "@/services/api/notifications.service";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 const EXPANDED_W = 220;
 const COLLAPSED_W = 64;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type MenuItem = NonNullable<MenuProps["items"]>[number];
 
@@ -47,8 +42,6 @@ interface SidebarChildItem {
   hasPermission: boolean;
 }
 
-// ─── Badge label helper ───────────────────────────────────────────────────────
-
 function BadgeLabel({ label, count }: { label: string; count: number }) {
   return (
     <span className="flex items-center gap-2">
@@ -57,8 +50,6 @@ function BadgeLabel({ label, count }: { label: string; count: number }) {
     </span>
   );
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
   collapsed: boolean;
@@ -84,24 +75,10 @@ export default function AppSideBar({
       hasPermission: hasAnyPermission(PermissionGroups.Dashboard),
     },
     {
-      key: "users",
+      key: "/app/users",
       icon: <TeamOutlined />,
       label: <BadgeLabel label="Users" count={counts?.users ?? 0} />,
       hasPermission: hasAnyPermission(PermissionGroups.User),
-      children: [
-        {
-          key: "/app/users",
-          icon: <UserOutlined />,
-          label: "Players",
-          hasPermission: hasPermission(Permission.VIEW_USER),
-        },
-        {
-          key: "/app/agents",
-          icon: <UserSwitchOutlined />,
-          label: "Agents (Turf Owners)",
-          hasPermission: hasPermission(Permission.VIEW_USER),
-        },
-      ],
     },
     {
       key: "/app/turfs",

@@ -17,7 +17,7 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get("returnUrl") ?? "/app/dashboard";
+  const returnUrl = searchParams.get("returnUrl") ?? "/app";
 
   const handleLogin = async () => {
     setLoading(true);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, Badge, Button, Dropdown, Popover, Select, Tag } from "antd";
+import { Avatar, Badge, Button, Dropdown, Select, Tag } from "antd";
 import type { MenuProps } from "antd";
 import {
   BellOutlined,
@@ -9,42 +9,33 @@ import {
   SwapOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { useRouter, usePathname } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { authActions } from "@/store/slices/auth";
+import { partnersAuthActions } from "@/store/slices/partnersAuth";
 import { clearPermissions } from "@/store/slices/permissionSlice";
-import { useNotifications } from "@/services/api/notifications.service";
-import NotificationModal from "@/components/NotificationModal";
+import { signOut } from "next-auth/react";
+import { authActions } from "@/store/slices/auth";
 
 interface Props {
   toggleMenu: () => void;
 }
 
-export default function AppNavBar({ toggleMenu }: Props) {
+export default function PartnerNavBar({ toggleMenu }: Props) {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const pathname = usePathname();
 
-  const user = useAppSelector((state) => state.auth.user);
-  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const partnerUser = useAppSelector((state) => state.partnersAuth.user);
+  const mainUser = useAppSelector((state) => state.auth.user);
+  const user = partnerUser ?? mainUser;
 
   const isSuperAdmin = useAppSelector(
     (state) => state.permissions.isSuperAdmin,
   );
 
-  const [isPopoverOpen, setPopoverOpen] = useState(false);
-
-  const { data: notifData, mutate: mutateNotifications } = useNotifications();
-  const unreadCount = notifData?.unreadCount ?? 0;
-
-  useEffect(() => {
-    if (!isAuthenticated) router.replace("/auth");
-  }, [isAuthenticated, router]);
-
   const handleLogout = async () => {
+    dispatch(partnersAuthActions.clearSession());
     dispatch(authActions.clearSession());
     dispatch(clearPermissions());
     await signOut({ redirect: false });
@@ -55,7 +46,7 @@ export default function AppNavBar({ toggleMenu }: Props) {
     ? user.name
         .trim()
         .split(" ")
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .join("")
         .slice(0, 2)
         .toUpperCase()
@@ -105,25 +96,12 @@ export default function AppNavBar({ toggleMenu }: Props) {
           />
         )}
 
-        <Popover
-          open={isPopoverOpen}
-          onOpenChange={(open) => {
-            setPopoverOpen(open);
-            if (open) mutateNotifications();
-          }}
-          content={<NotificationModal onClose={() => setPopoverOpen(false)} />}
-          trigger="click"
-          placement="bottomRight"
-          styles={{
-            root: { padding: 0 },
-            container: { padding: "12px 12px 8px" },
-          }}
-        >
-          <Badge count={unreadCount} overflowCount={99} size="small">
-            <BellOutlined className="text-xl text-gray-400 hover:text-primary cursor-pointer transition-colors" />
-          </Badge>
-        </Popover>
+        {/* Notifications */}
+        <Badge count={0} overflowCount={99} size="small">
+          <BellOutlined className="text-xl text-gray-400 hover:text-primary cursor-pointer transition-colors" />
+        </Badge>
 
+        {/* Avatar / dropdown */}
         <Dropdown
           menu={{ items: dropdownItems }}
           placement="bottomRight"

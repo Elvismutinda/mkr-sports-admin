@@ -144,7 +144,7 @@ export default function Home() {
           {getTimeOfDayGreeting()}, {getUserName()}! 👋
         </h1>
         <p className="text-gray-600">
-          Welcome to Arvocap Admin. Select a module to get started
+          Welcome to MKR Sports Admin. Select a module to get started
         </p>
       </div>
 

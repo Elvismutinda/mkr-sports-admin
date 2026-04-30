@@ -3,8 +3,6 @@ import { fetcher } from "../_fetcher";
 import { Position, UserRole } from "@/lib/db/schema";
 import { AdminUserRow, PaginatedUsers, UserAttributes, UserStats } from "../_types";
 
-// Hooks
-
 export const useUsers = (params?: {
   q?: string;
   role?: UserRole;
@@ -78,15 +76,6 @@ export const updateUser = async (
 
 export const deactivateUser = async (id: string): Promise<{ message: string }> => {
   const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
-  const data = await res.json();
-  if (!res.ok) throw data;
-  return data;
-};
-
-export const resendAgentInvite = async (id: string): Promise<{ message: string }> => {
-  const res = await fetch(`/api/admin/users/${id}/resend-invite`, {
-    method: "POST",
-  });
   const data = await res.json();
   if (!res.ok) throw data;
   return data;

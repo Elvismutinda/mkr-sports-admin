@@ -26,7 +26,7 @@ function CallbackPage() {
     if (returnUrl && returnUrl.startsWith("/") && !returnUrl.startsWith("/auth")) {
       router.replace(returnUrl);
     } else {
-      router.replace("/app/dashboard");
+      router.replace("/app");
     }
   }, [status, router, searchParams]);
 

@@ -3,7 +3,7 @@
 import { Tabs } from "antd";
 import type { TabsProps } from "antd";
 import { UserSwitchOutlined } from "@ant-design/icons";
-import AgentManagement from "./(views)/AgentManagement";
+import TurfManagement from "./(views)/TurfManagement";
 
 export default function AgentsPage() {
   const items: TabsProps["items"] = [
@@ -12,16 +12,16 @@ export default function AgentsPage() {
       label: (
         <span>
           <UserSwitchOutlined />
-          Turf Owners
+          Turf Managers
         </span>
       ),
-      children: <AgentManagement />,
+      children: <TurfManagement />,
     },
   ];
 
   return (
     <main className="flex min-h-screen flex-col gap-4">
-      <h2 className="text-2xl font-bold">Agents</h2>
+      <h2 className="text-2xl font-bold">Partners Management</h2>
       <Tabs defaultActiveKey="1" items={items} />
     </main>
   );

@@ -109,6 +109,6 @@ export const {
 
   session: {
     strategy: "jwt",
-    maxAge: 8 * 60 * 60,
+    maxAge: 30 * 60, // 30 minutes before logout due to inactivity
   },
 });

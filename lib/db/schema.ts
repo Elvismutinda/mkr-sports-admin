@@ -14,13 +14,44 @@ import {
   smallint,
 } from "drizzle-orm/pg-core";
 
-// ─────────────────────────────────────────────
-// ENUMS
-// ─────────────────────────────────────────────
-
-export const userRoles = ["player", "agent"] as const;
+export const userRoles = ["player"] as const;
 export type UserRole = (typeof userRoles)[number];
 export const userRoleEnum = pgEnum("user_roles", userRoles);
+
+// Partners are external users who access the system through the Partner Portal.
+// They are distinct from:
+//   - `users`        (players / end-users)
+//   - `system_users` (internal admin panel operators)
+
+export const partnerRoles = [
+  "turf_manager",   // manages turf listings
+  // future: "league_organiser", "equipment_vendor", etc.
+] as const;
+export type PartnerRole = (typeof partnerRoles)[number];
+export const partnerRoleEnum = pgEnum("partner_role", partnerRoles);
+
+export const partnerStatuses = ["active", "inactive", "suspended"] as const;
+export type PartnerStatus = (typeof partnerStatuses)[number];
+export const partnerStatusEnum = pgEnum("partner_status", partnerStatuses);
+
+export const partner = pgTable("partners", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 64 }).notNull(),
+  email: varchar("email", { length: 64 }).notNull().unique(),
+  emailVerified: timestamp("email_verified", { withTimezone: true }),
+  password: varchar("password", { length: 256 }).notNull(),
+  phone: varchar("phone", { length: 15 }),
+  avatarUrl: varchar("avatar_url", { length: 512 }),
+  businessName: varchar("business_name", { length: 128 }),
+  role: partnerRoleEnum("role").notNull().default("turf_manager"),
+  status: partnerStatusEnum("status").notNull().default("active"),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
 
 export const positions = [
   "Goalkeeper",
@@ -113,7 +144,7 @@ export const challengeStatusEnum = pgEnum(
 
 
 /**
- * System roles — distinct from player/agent roles.
+ * System roles — distinct from player role.
  * These are for the admin panel (e.g., Super Admin, Match Manager, Finance Officer).
  */
 export const systemRole = pgTable("system_roles", {
@@ -170,7 +201,7 @@ export const rolePermission = pgTable(
 );
 
 /**
- * System users — admin panel operators. NOT the same as regular players/agents.
+ * System users — admin panel operators. NOT the same as regular players.
  * Examples: Super Admin, Finance Officer, Match Manager.
  */
 export const systemUser = pgTable("system_users", {
@@ -256,7 +287,7 @@ export const turf = pgTable("turfs", {
   rating: numeric("rating", { precision: 3, scale: 2 }).default("0.00"),
   totalReviews: integer("total_reviews").notNull().default(0),
   capacity: integer("capacity"),
-  agentId: uuid("agent_id").references(() => user.id, { onDelete: "set null" }), // turf owner
+  partnerId: uuid("partner_id").references(() => partner.id, { onDelete: "set null" }), // turf manager
   isActive: boolean("is_active").notNull().default(true),
   images: jsonb("images").$type<string[]>().default([]),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -752,6 +783,8 @@ export const passwordResetToken = pgTable(
 
 export type User = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;
+export type Partner = typeof partner.$inferSelect;
+export type NewPartner = typeof partner.$inferInsert;
 export type SystemUser = typeof systemUser.$inferSelect;
 export type NewSystemUser = typeof systemUser.$inferInsert;
 export type SystemRole = typeof systemRole.$inferSelect;

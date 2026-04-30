@@ -636,7 +636,7 @@ export default function SystemLogsPage() {
           />
         </div>
 
-        <div className="flex gap-2 flex-wrap items-center bg-white p-3 rounded-xl border">
+        <div className="flex gap-2 flex-wrap items-center bg-white p-3 rounded-lg">
           <Tooltip title="Refresh">
             <Button
               icon={<SyncOutlined spin={isValidating} />}

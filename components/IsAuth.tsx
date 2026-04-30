@@ -33,7 +33,7 @@ export default function isAuth<P extends object>(Component: React.ComponentType<
       ? `${pathname}?${searchParams.toString()}`
       : pathname;
 
-    // ── Redirect if unauthenticated ───────────────────
+    // Redirect if unauthenticated
     useEffect(() => {
       if (status === "loading") return;
 
@@ -43,7 +43,7 @@ export default function isAuth<P extends object>(Component: React.ComponentType<
       }
     }, [router, fullPath, dispatch, status]);
 
-    // ── Sync session → Redux ──────────────────────────
+    // Sync session → Redux
     useEffect(() => {
       if (status !== "authenticated" || !user) return;
 

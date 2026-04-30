@@ -9,7 +9,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(true);
 
   return (
-    // overflow-hidden on the root prevents any scroll during the width transition
     <div className="flex flex-row w-full h-screen overflow-hidden">
       <AppSideBar
         collapsed={collapsed}
