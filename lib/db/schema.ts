@@ -34,25 +34,6 @@ export const partnerStatuses = ["active", "inactive", "suspended"] as const;
 export type PartnerStatus = (typeof partnerStatuses)[number];
 export const partnerStatusEnum = pgEnum("partner_status", partnerStatuses);
 
-export const partner = pgTable("partners", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: varchar("name", { length: 64 }).notNull(),
-  email: varchar("email", { length: 64 }).notNull().unique(),
-  emailVerified: timestamp("email_verified", { withTimezone: true }),
-  password: varchar("password", { length: 256 }).notNull(),
-  phone: varchar("phone", { length: 15 }),
-  avatarUrl: varchar("avatar_url", { length: 512 }),
-  businessName: varchar("business_name", { length: 128 }),
-  role: partnerRoleEnum("role").notNull().default("turf_manager"),
-  status: partnerStatusEnum("status").notNull().default("active"),
-  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
-
 export const positions = [
   "Goalkeeper",
   "Defender",
@@ -139,6 +120,29 @@ export type ChallengeStatus = (typeof challengeStatuses)[number];
 export const challengeStatusEnum = pgEnum(
   "challenge_status",
   challengeStatuses,
+);
+
+export const kycStatuses = [
+  "not_submitted", // partner registered but hasn't uploaded docs yet
+  "pending",       // docs submitted, awaiting admin review
+  "in_review",     // admin has opened the submission
+  "approved",      // KYC passed
+  "rejected",      // KYC failed — partner can resubmit if allowed
+  "expired",       // approval period lapsed, re-verification needed
+] as const;
+export type KycStatus = (typeof kycStatuses)[number];
+export const kycStatusEnum = pgEnum("kyc_status", kycStatuses);
+
+
+export const kycDocumentStatuses = [
+  "pending",   // uploaded, not yet reviewed
+  "accepted",  // admin marked this doc as valid
+  "rejected",  // admin rejected this specific doc
+] as const;
+export type KycDocumentStatus = (typeof kycDocumentStatuses)[number];
+export const kycDocumentStatusEnum = pgEnum(
+  "kyc_document_status",
+  kycDocumentStatuses,
 );
 
 
@@ -271,7 +275,31 @@ export const user = pgTable("users", {
     .$onUpdate(() => new Date()),
 });
 
-
+export const partner = pgTable("partners", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: varchar("name", { length: 64 }).notNull(),
+  email: varchar("email", { length: 64 }).notNull().unique(),
+  emailVerified: timestamp("email_verified", { withTimezone: true }),
+  password: varchar("password", { length: 256 }).notNull(),
+  phone: varchar("phone", { length: 15 }),
+  avatarUrl: varchar("avatar_url", { length: 512 }),
+  businessName: varchar("business_name", { length: 128 }),
+  role: partnerRoleEnum("role").notNull().default("turf_manager"),
+  status: partnerStatusEnum("status").notNull().default("active"),
+  kycStatus: kycStatusEnum("kyc_status").notNull().default("not_submitted"),
+  kycSubmittedAt: timestamp("kyc_submitted_at", { withTimezone: true }),
+  kycReviewedAt: timestamp("kyc_reviewed_at", { withTimezone: true }),
+  kycReviewedBy: uuid("kyc_reviewed_by").references(() => systemUser.id, { onDelete: "set null" }),
+  kycRejectionReason: text("kyc_rejection_reason"),
+  kycResubmissionCount: integer("kyc_resubmission_count").notNull().default(0),
+  commissionPercent: numeric("commission_percent", { precision: 5, scale: 2 }),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
 
 export const turf = pgTable("turfs", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -779,6 +807,206 @@ export const passwordResetToken = pgTable(
   }),
 );
 
+ 
+export const kycSubmission = pgTable(
+  "kyc_submissions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    partnerId: uuid("partner_id")
+      .references(() => partner.id, { onDelete: "cascade" })
+      .notNull(),
+    // Which attempt this is (1 = first, 2 = first resubmission, etc.)
+    attemptNumber: integer("attempt_number").notNull().default(1),
+    status: kycStatusEnum("status").notNull().default("pending"),
+    // Admin who reviewed this submission
+    reviewedBy: uuid("reviewed_by"), // references systemUser.id
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
+    // Admin notes (internal, not shown to partner)
+    adminNotes: text("admin_notes"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => ({
+    partnerIdx: index("kyc_submission_partner_idx").on(table.partnerId),
+    statusIdx: index("kyc_submission_status_idx").on(table.status),
+  }),
+);
+
+ 
+export const kycDocument = pgTable(
+  "kyc_documents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    submissionId: uuid("submission_id")
+      .references(() => kycSubmission.id, { onDelete: "cascade" })
+      .notNull(),
+    partnerId: uuid("partner_id")
+      .references(() => partner.id, { onDelete: "cascade" })
+      .notNull(),
+    // Matches the `id` field in KycDocument[] from KycFlowSettings (e.g. "national_id")
+    documentTypeId: varchar("document_type_id", { length: 64 }).notNull(),
+    documentLabel: varchar("document_label", { length: 128 }).notNull(),
+    fileUrl: varchar("file_url", { length: 1024 }).notNull(),
+    mimeType: varchar("mime_type", { length: 64 }),
+    sizeBytes: integer("size_bytes"),
+    status: kycDocumentStatusEnum("status").notNull().default("pending"),
+    rejectionNote: text("rejection_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    submissionIdx: index("kyc_doc_submission_idx").on(table.submissionId),
+    partnerIdx: index("kyc_doc_partner_idx").on(table.partnerId),
+  }),
+);
+
+ 
+export const partnerSettings = pgTable("partner_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+ 
+  // Access & Security
+  sessionTimeoutMinutes: integer("session_timeout_minutes").notNull().default(60),
+  maxFailedLogins: integer("max_failed_logins").notNull().default(5),
+  autoSuspendAfterDays: integer("auto_suspend_after_days").notNull().default(90),
+  passwordMinLength: integer("password_min_length").notNull().default(8),
+  requirePasswordSpecialChar: boolean("require_password_special_char")
+    .notNull()
+    .default(true),
+  requirePasswordNumber: boolean("require_password_number")
+    .notNull()
+    .default(true),
+ 
+  // Email notifications
+  notifyOnBookingConfirmed: boolean("notify_on_booking_confirmed")
+    .notNull()
+    .default(true),
+  notifyOnPaymentReceived: boolean("notify_on_payment_received")
+    .notNull()
+    .default(true),
+  notifyOnTurfReview: boolean("notify_on_turf_review").notNull().default(true),
+  notifyOnAccountSuspended: boolean("notify_on_account_suspended")
+    .notNull()
+    .default(true),
+  notifyOnKycApproved: boolean("notify_on_kyc_approved").notNull().default(true),
+  notifyOnKycRejected: boolean("notify_on_kyc_rejected").notNull().default(true),
+ 
+  // Revenue
+  supportEmail: varchar("support_email", { length: 128 })
+    .notNull()
+    .default("partners@mkrsports.com"),
+  defaultCurrency: varchar("default_currency", { length: 8 })
+    .notNull()
+    .default("KES"),
+  defaultCommissionPercent: numeric("default_commission_percent", {
+    precision: 5,
+    scale: 2,
+  })
+    .notNull()
+    .default("10.00"),
+ 
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+ 
+export const turfSettings = pgTable("turf_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+ 
+  // Booking rules
+  minBookingHours: numeric("min_booking_hours", { precision: 4, scale: 1 })
+    .notNull()
+    .default("1.0"),
+  maxBookingHours: numeric("max_booking_hours", { precision: 4, scale: 1 })
+    .notNull()
+    .default("8.0"),
+  advanceBookingDays: integer("advance_booking_days").notNull().default(30),
+  cancellationHours: integer("cancellation_hours").notNull().default(24),
+ 
+  // Listing requirements
+  autoApproveListings: boolean("auto_approve_listings").notNull().default(false),
+  requireCapacity: boolean("require_capacity").notNull().default(true),
+  requireSurface: boolean("require_surface").notNull().default(true),
+  requireImages: boolean("require_images").notNull().default(true),
+  minImages: integer("min_images").notNull().default(3),
+ 
+  // Pricing defaults by surface (jsonb for flexibility)
+  // Shape: { natural_grass: 3000, artificial_turf: 2500, futsal_floor: 2000, indoor: 3500 }
+  surfacePriceDefaults: jsonb("surface_price_defaults")
+    .$type<Record<string, number>>()
+    .default({}),
+ 
+  // Amenity vocabulary
+  // Ordered list of amenity strings partners can pick from
+  amenityOptions: jsonb("amenity_options")
+    .$type<string[]>()
+    .default([]),
+ 
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+ 
+export const kycSettings = pgTable("kyc_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+ 
+  // Approval
+  approvalMode: varchar("approval_mode", { length: 16 })
+    .notNull()
+    .default("manual"), // "manual" | "auto"
+  reviewSlaHours: integer("review_sla_hours").notNull().default(48),
+  expiryDays: integer("expiry_days").notNull().default(365),
+  allowResubmission: boolean("allow_resubmission").notNull().default(true),
+  maxResubmissions: integer("max_resubmissions").notNull().default(3),
+ 
+  // Admin notifications
+  notifyAdminOnSubmission: boolean("notify_admin_on_submission")
+    .notNull()
+    .default(true),
+  adminNotificationEmail: varchar("admin_notification_email", { length: 128 })
+    .notNull()
+    .default("kyc@mkrsports.com"),
+ 
+  // Email templates
+  approvalEmailTemplate: text("approval_email_template").notNull().default(
+    "Congratulations! Your KYC documents have been verified and your partner account is now active.",
+  ),
+  rejectionEmailTemplate: text("rejection_email_template").notNull().default(
+    "We were unable to verify your submitted documents. Please review the feedback below and resubmit.",
+  ),
+ 
+  // Required documents config
+  // Stored as jsonb — shape matches KycDocument[] from KycFlowSettings.tsx:
+  // [{ id, label, description, required, acceptedTypes, maxSizeMb }]
+  requiredDocuments: jsonb("required_documents")
+    .$type<
+      {
+        id: string;
+        label: string;
+        description: string;
+        required: boolean;
+        acceptedTypes: "image" | "pdf" | "any";
+        maxSizeMb: number;
+      }[]
+    >()
+    .default([]),
+ 
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
 
 
 export type User = typeof user.$inferSelect;
@@ -813,3 +1041,10 @@ export type Payment = typeof payment.$inferSelect;
 export type NewPayment = typeof payment.$inferInsert;
 export type Notification = typeof notification.$inferSelect;
 export type SystemLog = typeof systemLog.$inferSelect;
+export type KycSubmission = typeof kycSubmission.$inferSelect;
+export type NewKycSubmission = typeof kycSubmission.$inferInsert;
+export type KycDocument = typeof kycDocument.$inferSelect;
+export type NewKycDocument = typeof kycDocument.$inferInsert;
+export type PartnerSettings = typeof partnerSettings.$inferSelect;
+export type TurfSettings = typeof turfSettings.$inferSelect;
+export type KycSettings = typeof kycSettings.$inferSelect;

@@ -3,12 +3,20 @@ import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { db } from "@/lib/db/db";
-import { systemUser, rolePermission, permission } from "@/lib/db/schema";
+import {
+  systemUser,
+  rolePermission,
+  permission,
+  systemLog,
+} from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const AdminLoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  // Collected client-side and passed as hidden fields
+  ipAddress: z.string().optional(),
+  userAgent: z.string().optional(),
 });
 
 export default {
@@ -18,9 +26,8 @@ export default {
         const parsed = AdminLoginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+        const { email, password, ipAddress, userAgent } = parsed.data;
 
-        // Look up in system_users — NOT the public users table
         const [sysUser] = await db
           .select({
             id: systemUser.id,
@@ -36,14 +43,11 @@ export default {
           .limit(1);
 
         if (!sysUser) return null;
-
-        // Block suspended / inactive accounts at login
         if (sysUser.status !== "active") return null;
 
         const valid = await bcrypt.compare(password, sysUser.password);
         if (!valid) return null;
 
-        // Resolve permissions from the user's role
         let permissions: string[] = [];
         if (sysUser.roleId) {
           const perms = await db
@@ -54,14 +58,26 @@ export default {
               eq(rolePermission.permissionId, permission.id),
             )
             .where(eq(rolePermission.roleId, sysUser.roleId));
-
           permissions = perms.map((p) => p.key);
         }
 
-        // Update last login timestamp (fire-and-forget)
+        // Fire-and-forget: update last login + write login log with real IP/UA
         db.update(systemUser)
           .set({ lastLoginAt: new Date() })
           .where(eq(systemUser.id, sysUser.id))
+          .catch(() => {});
+
+        db.insert(systemLog)
+          .values({
+            actorId: sysUser.id,
+            actorType: "system_user",
+            action: "LOGIN",
+            entityType: "system_user",
+            entityId: sysUser.id,
+            description: `${sysUser.name} signed in`,
+            ipAddress: ipAddress ?? null,
+            userAgent: userAgent ?? null,
+          })
           .catch(() => {});
 
         return {
@@ -69,7 +85,6 @@ export default {
           name: sysUser.name,
           email: sysUser.email,
           image: sysUser.avatarUrl,
-          // Custom fields — picked up in the jwt callback
           permissions,
           roleId: sysUser.roleId,
         };

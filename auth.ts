@@ -42,6 +42,7 @@ export const {
      */
     async signIn({ user }) {
       if (!user.id) return false;
+      
       const [sysUser] = await db
         .select({ status: systemUser.status })
         .from(systemUser)
@@ -60,8 +61,7 @@ export const {
       if (user) {
         token.id = user.id;
         token.sub = user.id; // keep sub in sync so both fields are reliable
-        token.permissions =
-          (user as { permissions?: string[] }).permissions ?? [];
+        token.permissions = (user as { permissions?: string[] }).permissions ?? [];
         token.roleId = (user as { roleId?: string | null }).roleId ?? null;
         return token;
       }

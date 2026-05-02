@@ -1,5 +1,4 @@
 "use client";
-
 import { Button, Form, Input, message } from "antd";
 import { LockOutlined, MailOutlined } from "@ant-design/icons";
 import { signIn } from "next-auth/react";
@@ -10,6 +9,20 @@ import Link from "next/link";
 interface LoginFields {
   email: string;
   password: string;
+}
+
+async function getClientInfo(): Promise<{
+  ipAddress: string;
+  userAgent: string;
+}> {
+  const userAgent = navigator.userAgent;
+  try {
+    const res = await fetch("/api/client-info");
+    const { ip } = await res.json();
+    return { ipAddress: ip ?? "", userAgent };
+  } catch {
+    return { ipAddress: "", userAgent };
+  }
 }
 
 export default function AuthPage() {
@@ -23,10 +36,13 @@ export default function AuthPage() {
     setLoading(true);
     try {
       const { email, password } = await form.validateFields();
+      const { ipAddress, userAgent } = await getClientInfo();
 
       const result = await signIn("credentials", {
         email,
         password,
+        ipAddress,
+        userAgent,
         redirect: false,
       });
 
@@ -47,7 +63,6 @@ export default function AuthPage() {
 
       router.replace(returnUrl);
     } catch (e: unknown) {
-      // validateFields throws on validation failure — don't show a toast for that
       if (e && typeof e === "object" && "errorFields" in e) return;
       message.open({
         type: "error",

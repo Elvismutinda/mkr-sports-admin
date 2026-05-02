@@ -347,3 +347,152 @@ export interface DashboardData {
     createdAt: string;
   }[];
 }
+
+
+
+
+export interface PartnerSettingsData {
+  id: string;
+  sessionTimeoutMinutes: number;
+  maxFailedLogins: number;
+  autoSuspendAfterDays: number;
+  passwordMinLength: number;
+  requirePasswordSpecialChar: boolean;
+  requirePasswordNumber: boolean;
+  notifyOnBookingConfirmed: boolean;
+  notifyOnPaymentReceived: boolean;
+  notifyOnTurfReview: boolean;
+  notifyOnAccountSuspended: boolean;
+  notifyOnKycApproved: boolean;
+  notifyOnKycRejected: boolean;
+  supportEmail: string;
+  defaultCurrency: string;
+  defaultCommissionPercent: string;
+  updatedAt: string;
+}
+
+export interface TurfSettingsData {
+  id: string;
+  minBookingHours: string;
+  maxBookingHours: string;
+  advanceBookingDays: number;
+  cancellationHours: number;
+  autoApproveListings: boolean;
+  requireCapacity: boolean;
+  requireSurface: boolean;
+  requireImages: boolean;
+  minImages: number;
+  surfacePriceDefaults: Record<string, number>;
+  amenityOptions: string[];
+  updatedAt: string;
+}
+
+export interface KycDocumentConfig {
+  id: string;
+  label: string;
+  description: string;
+  required: boolean;
+  acceptedTypes: "image" | "pdf" | "any";
+  maxSizeMb: number;
+}
+
+export interface KycSettingsData {
+  id: string;
+  approvalMode: "manual" | "auto";
+  reviewSlaHours: number;
+  expiryDays: number;
+  allowResubmission: boolean;
+  maxResubmissions: number;
+  notifyAdminOnSubmission: boolean;
+  adminNotificationEmail: string;
+  approvalEmailTemplate: string;
+  rejectionEmailTemplate: string;
+  requiredDocuments: KycDocumentConfig[];
+  updatedAt: string;
+}
+
+export interface KycSubmissionRow {
+  id: string;
+  partnerId: string;
+  partnerName: string | null;
+  partnerEmail: string | null;
+  partnerBusinessName: string | null;
+  attemptNumber: number;
+  status: "pending" | "in_review" | "approved" | "rejected" | "not_submitted" | "expired";
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  submittedAt: string;
+}
+
+export interface KycDocumentRow {
+  id: string;
+  submissionId: string;
+  partnerId: string;
+  documentTypeId: string;
+  documentLabel: string;
+  fileUrl: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  status: "pending" | "accepted" | "rejected";
+  rejectionNote: string | null;
+  createdAt: string;
+}
+ 
+export interface KycDocumentBundle {
+  submissionId: string;
+  partnerId: string;
+  partnerName: string | null;
+  partnerEmail: string | null;
+  partnerBusinessName: string | null;
+  attemptNumber: number;
+  submittedAt: string;
+  submissionStatus: string;
+  documents: KycDocumentRow[];
+}
+ 
+export interface KycDocumentsResponse {
+  data: KycDocumentBundle[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+
+export interface PartnerAnalytics {
+  kpis: {
+    totalPartners: number;
+    activePartners: number;
+    suspendedPartners: number;
+    inactivePartners: number;
+    totalTurfs: number;
+    activeTurfs: number;
+    pendingKyc: number;
+    approvedKyc: number;
+    newThisMonth: number;
+    newLastMonth: number;
+    partnerGrowth: number; // % change vs prior 30 days
+  };
+  growthTrend: { month: string; count: number }[];
+  loginTrend: { day: string; count: number }[];
+  kycFunnel: { status: string; count: number }[];
+  statusDist: { status: string; count: number }[];
+  roleDist: { role: string; count: number }[];
+  topPartners: {
+    partnerId: string;
+    partnerName: string;
+    businessName: string | null;
+    email: string;
+    status: string;
+    turfCount: number;
+  }[];
+  recentActivity: {
+    id: string;
+    action: string;
+    description: string | null;
+    createdAt: string;
+    actorName: string | null;
+  }[];
+}
